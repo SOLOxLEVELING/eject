@@ -26,7 +26,7 @@ The game has shut down, but one rogue process—**OP-01**—remains. The contain
 
 ## Controls & Accessibility
 
-- **Opening:** Start begins a silent, 22-second in-engine sequence. **Skip intro**, `Escape` or `Enter` enters the same fresh first chamber immediately. Reduced motion removes camera/glitch/door movement while preserving readable story beats.
+- **Title / Opening:** **BEGIN LAST SESSION** starts in an original illustrated night bedroom: the last player is pulled through his CRT and wakes as OP-01. Five story beats take 43 seconds if watched; click the scene, **Continue**, or `Enter` to advance quickly. **Skip intro** or `Escape` enters the same fresh first chamber immediately. **How to Play** opens field notes on the title. Reduced motion shows still scenes and readable dialogue; the opening is silent.
 - **Move:** `WASD`, `Arrow Keys`, or the on-screen directional buttons (`← ↑ ↓ →`)
 - **Interact:** Current bound key (`E` initially; `F` or `K` when rebound) or the on-screen **Interact [`Key`]** button
 - **Settings:** `Escape` or the visible **Settings** button opens the overlay; `Escape` or **Resume** closes it and focuses the room. Native sliders/select support pointer and keyboard (`Tab`, `Arrow Keys`, `Enter`/`Space`). Game movement and interaction are blocked while settings are open or a control has keyboard focus.

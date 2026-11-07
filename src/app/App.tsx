@@ -2,6 +2,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { ChamberArrival } from '../components/ChamberArrival';
 import { EscapeScene } from '../components/EscapeScene';
 import { OpeningSequence } from '../components/OpeningSequence';
+import { TitleScreen } from '../components/TitleScreen';
 import { Hud } from '../components/Hud';
 import { SettingsPanel } from '../components/SettingsPanel';
 import { WorldGrid } from '../components/WorldGrid';
@@ -43,10 +44,8 @@ const KEY_TO_DIRECTION: Record<string, Direction> = {
 
 export function App() {
   const [state, dispatch] = useReducer(gameReducer, undefined, createInitialState);
-  const [showManual, setShowManual] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const sceneRef = useRef<HTMLElement | null>(null);
-  const titleStartRef = useRef<HTMLButtonElement | null>(null);
   const startPlaying = useCallback(() => dispatch({ type: 'START_GAME' }), []);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const stateRef = useRef(state);
@@ -54,7 +53,6 @@ export function App() {
 
   function returnToTitle() {
     setSettingsOpen(false);
-    setShowManual(false);
     dispatch({ type: 'RESTART_GAME' });
   }
 
@@ -233,9 +231,7 @@ export function App() {
   }, [state.phase, settingsOpen]);
 
   useEffect(() => {
-    if (state.phase === 'intro') {
-      titleStartRef.current?.focus({ preventScroll: true });
-    } else if (state.phase === 'playing' && !settingsOpen) {
+    if (state.phase === 'playing' && !settingsOpen) {
       sceneRef.current?.focus({ preventScroll: true });
     }
   }, [state.phase, settingsOpen]);
@@ -245,136 +241,7 @@ export function App() {
   }
 
   if (state.phase === 'intro') {
-    return (
-      <div className="console-root" data-phase="intro">
-        <main className="boot-screen" aria-labelledby="boot-title">
-          <div className="boot-top-strip">
-            <span className="boot-tag">FIRMWARE 04.9 // CORRUPTED DIAGNOSTIC SHELL</span>
-            <span className="boot-status">CONTAINMENT LOCK: ACTIVE</span>
-          </div>
-
-          <div className="boot-layout">
-            <section className="boot-primary">
-              <p className="boot-kicker">FIELD CALIBRATION TERMINAL</p>
-              <h1 id="boot-title" className="boot-title">
-                EJECT
-              </h1>
-              <p className="boot-subtitle">Settings Are the Dungeon</p>
-
-              <p className="boot-narrative">
-                The game has shut down. You haven&apos;t. Find a way out of the
-                system that wants to keep you safe.
-              </p>
-
-              <div className="boot-cta-row">
-                <button
-                  type="button"
-                  className="console-btn console-btn-primary"
-                  ref={titleStartRef}
-                  onClick={() => dispatch({ type: 'START_INTRO' })}
-                  data-testid="start-btn"
-                >
-                  Start Session
-                </button>
-                <button
-                  type="button"
-                  className="console-btn console-btn-secondary"
-                  aria-expanded={showManual}
-                  aria-controls="title-help"
-                  onClick={() => setShowManual((prev) => !prev)}
-                >
-                  {showManual ? 'Hide How to Play' : 'How to Play'}
-                </button>
-              </div>
-
-              <p className="settings-intro">22-second opening. Skip any time with Escape, Enter or Skip intro.</p>
-              <section
-                id="title-help"
-                hidden={!showManual}
-                className={`boot-manual-card ${showManual ? 'is-emphasized' : ''}`}
-                aria-label="How to Play Controls"
-              >
-                <h2 className="manual-heading">OPERATOR BRIEFING // CONTROLS</h2>
-                <div className="manual-grid">
-                  <div className="manual-item">
-                    <span className="manual-key">WASD / ARROWS</span>
-                    <span className="manual-desc">
-                      Navigate the operator through the 9×7 chamber grid.
-                    </span>
-                  </div>
-                  <div className="manual-item">
-                    <span className="manual-key">KEY [{bindLabel}] / BUTTON</span>
-                    <span className="manual-desc">
-                      Activate adjacent glyphs, resonators, and terminals (E initially).
-                    </span>
-                  </div>
-                  <div className="manual-item">
-                    <span className="manual-key">SETTINGS / ESC</span>
-                    <span className="manual-desc">
-                      Brightness, Volume/Mute, and Key Bindings directly rewire the room.
-                    </span>
-                  </div>
-                </div>
-              </section>
-            </section>
-
-            <aside
-              className="boot-SideRack"
-              aria-label="Initial System Parameter Registers"
-            >
-              <div className="rack-header">
-                <span className="panel-index">PARAMETER BUS // IN-GAME SETTINGS</span>
-                <h2 className="rack-title">INITIAL DIAGNOSTIC REGISTERS</h2>
-              </div>
-
-              <dl className="rack-register-list">
-                <div className="rack-register">
-                  <dt>01 // DISPLAY BRIGHTNESS</dt>
-                  <dd>{state.settings.brightness}% (LOW LUMINANCE)</dd>
-                </div>
-                <div className="rack-register">
-                  <dt>02 // AUDIO RESONANCE</dt>
-                  <dd>
-                    {state.settings.volume}% [{state.settings.muted ? 'MUTED' : 'LIVE'}]
-                  </dd>
-                </div>
-                <div className="rack-register">
-                  <dt>03 // INTERACT ACTUATOR</dt>
-                  <dd>BOUND TO KEY [{bindLabel}]</dd>
-                </div>
-              </dl>
-
-              <div className="rack-diagram" aria-hidden="true">
-                <div className="diagram-row">
-                  <span>[SECTOR 01: DISPLAY]</span>
-                  <span className="status-warn">LOCKED</span>
-                </div>
-                <div className="diagram-row">
-                  <span>[SECTOR 02: AUDIO]</span>
-                  <span className="status-dim">STANDBY</span>
-                </div>
-                <div className="diagram-row">
-                  <span>[SECTOR 03: CONTROLS]</span>
-                  <span className="status-dim">STANDBY</span>
-                </div>
-                <div className="diagram-row">
-                  <span>[SECTOR 04: THE FRAME]</span>
-                  <span className="status-dim">STANDBY</span>
-                </div>
-                <div className="diagram-row">
-                  <span>[SECTOR 05: CROSS-TALK]</span>
-                  <span className="status-dim">STANDBY</span>
-                </div>
-                <div className="diagram-row">
-                  <span>[SECTOR 06: SYSTEM EXIT]</span>
-                  <span className="status-dim">STANDBY</span>
-                </div>
-              </div>
-            </aside>
-          </div>
-        </main>
-      </div>
-    );
+    return <TitleScreen onStart={() => dispatch({ type: 'START_INTRO' })} />;
   }
 
   if (state.phase === 'won') {

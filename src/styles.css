@@ -36,94 +36,36 @@ button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-v
 }
 kbd { font-family: var(--font-mono); font-size: 0.8em; }
 
-/* Title screen. */
-.console-root {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 10px 20px;
-  background-color: var(--bg-chassis);
-}
-.boot-screen {
-  width: 100%;
-  max-width: 1232px;
-  margin: 0 auto;
-  border: 1px solid var(--line-strong);
-  background-color: var(--bg-panel);
-}
-.boot-top-strip {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 20px;
-  border-bottom: 1px solid var(--line-subtle);
-  background-color: var(--bg-recessed);
-  font-family: var(--font-mono);
-  font-size: 0.76rem;
-  letter-spacing: 0.06em;
-}
-.boot-tag { color: var(--ink-secondary); }
-.boot-status {
-  color: var(--accent-orange);
-  padding: 2px 8px;
-  border: 1px solid var(--accent-orange);
-  background-color: var(--accent-orange-dim);
-}
-.boot-status-ok { color: var(--accent-sage); border-color: var(--accent-sage); background-color: var(--accent-sage-dim); }
-.boot-layout { display: grid; grid-template-columns: minmax(0, 1.85fr) minmax(300px, 1fr); }
-.boot-primary {
-  min-width: 0;
-  padding: 36px 40px;
-  border-right: 1px solid var(--line-subtle);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-.boot-kicker {
-  margin: 0 0 8px;
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  letter-spacing: 0.12em;
-  color: var(--accent-sage);
-}
-.boot-title {
-  margin: 0;
-  font-family: var(--font-serif);
-  font-size: clamp(2.6rem, 4.5vw, 3.8rem);
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  line-height: 1.02;
-}
-.boot-subtitle { margin: 6px 0 20px; font-family: var(--font-serif); font-style: italic; font-size: 1.25rem; color: var(--ink-secondary); }
-.boot-narrative {
-  margin: 0 0 28px;
-  max-width: 60ch;
-  font-size: 1.02rem;
-  line-height: 1.6;
-  padding-left: 14px;
-  border-left: 2px solid var(--accent-orange);
-}
-.won-narrative { border-left-color: var(--accent-sage); }
-.boot-cta-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 28px; }
-.boot-manual-card { border: 1px solid var(--line-subtle); background-color: var(--bg-recessed); padding: 16px 18px; }
-.boot-manual-card.is-emphasized { border-color: var(--accent-sage); background-color: #111615; }
-.manual-heading { margin: 0 0 12px; font-family: var(--font-mono); font-size: 0.76rem; letter-spacing: 0.08em; color: var(--accent-sage); }
-.manual-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
-.manual-item { display: flex; flex-direction: column; gap: 4px; }
-.manual-key { font-family: var(--font-mono); font-size: 0.8rem; font-weight: 600; }
-.manual-desc { font-size: 0.83rem; color: var(--ink-secondary); line-height: 1.4; }
-.boot-SideRack { min-width: 0; padding: 36px 28px; background-color: #121517; display: flex; flex-direction: column; justify-content: space-between; gap: 24px; }
-.rack-header { border-bottom: 1px solid var(--line-subtle); padding-bottom: 12px; }
-.rack-title { margin: 4px 0 0; font-family: var(--font-mono); font-size: 0.95rem; letter-spacing: 0.04em; }
+/* The menu lives on the bedroom CRT, not in a diagnostic dashboard. */
+.last-session-title { position: relative; height: 100vh; height: 100dvh; min-height: 600px; overflow: hidden; background: #101426; }
+.bedroom-scene { position: absolute; inset: 0; overflow: hidden; background: #171b30; }
+.bedroom-art { position: absolute; inset: 0; width: 100%; height: 100%; }
+.crt-screen { position: absolute; left: 54%; top: 22%; width: 31.5%; height: 35.5%; padding: 10px 14px; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #efcf98; font-family: var(--font-mono); text-align: center; background: #202b2c; box-shadow: inset 0 0 30px #070d12; }
+.crt-screen h1, .story-crt-title { margin: 0; font-family: var(--font-serif); font-size: clamp(2.8rem, 5.5vw, 5rem); line-height: 1; letter-spacing: 0.06em; }
+.crt-online { margin: 0 0 8px; font-size: clamp(0.65rem, 1vw, 0.85rem); color: #aabdac; }
+.crt-subtitle { margin: 6px 0 16px; font-size: 0.9rem; }
+.crt-menu { display: flex; flex-direction: column; align-items: stretch; gap: 4px; width: 100%; }
+.crt-menu button { padding: 8px; border: 1px solid transparent; background: transparent; color: #efcf98; font-size: clamp(0.75rem, 1.15vw, 1rem); cursor: pointer; }
+.crt-menu button:hover, .crt-menu button:focus-visible { border-color: #efcf98; background: #efcf9810; outline-color: #efcf98; }
+.crt-shutdown { margin: 12px 0 0; color: #e3a079; font-size: clamp(0.6rem, 0.9vw, 0.78rem); }
+.title-caption { position: absolute; bottom: 26px; left: 5%; margin: 0; color: #c0b7b0; font-family: var(--font-serif); font-size: 1.1rem; }
+.title-field-notes { position: absolute; bottom: 28px; left: 4%; width: 390px; max-width: calc(100% - 32px); max-height: 65%; overflow: auto; padding: 22px; background: #252b38; border-left: 3px solid #aabdac; color: #ece5d6; box-shadow: 8px 8px #0c122580; }
+.title-field-notes h2 { margin: 0; font: 1.4rem var(--font-serif); }
+.title-field-notes p { font-size: 0.9rem; }
+.bedroom-rain { animation: bedroom-rain 2s linear infinite; }
+.bedroom-fragments { opacity: 0; transform-box: fill-box; transform-origin: center; }
+.crt-terminated { font-size: clamp(1rem, 2vw, 1.8rem); }
+.crt-cursor { width: 10px; height: 14px; background: #aabdac; animation: crt-cursor 2s steps(3) infinite; }
+[data-moment='terminated'] .crt-screen { background: #080e17; box-shadow: none; }
+[data-moment='terminated'] .crt-terminated { color: #aabdac; }
+[data-moment='pull'] .bedroom-boy { opacity: 0; }
+[data-moment='pull'] .bedroom-fragments { opacity: 1; animation: into-the-glass 2s ease-in forwards; }
+[data-moment='pull'] .bedroom-controller { transform: translate(-8px, 230px) rotate(-12deg); transform-origin: 600px 400px; transition: transform 600ms ease-in; }
+[data-moment='pull'] .crt-screen { background: #53695c; box-shadow: 0 0 90px #b9c8a855; }
+@keyframes bedroom-rain { to { transform: translate(-9px, 18px); } }
+@keyframes crt-cursor { 50% { transform: translateX(12px); } }
+@keyframes into-the-glass { to { transform: translate(390px, -110px) scale(0.2); opacity: 0; } }
 .panel-index { margin: 0; font-family: var(--font-mono); font-size: 0.68rem; color: var(--ink-secondary); }
-.rack-register-list { margin: 0; display: flex; flex-direction: column; gap: 14px; }
-.rack-register { padding: 12px 14px; border: 1px solid var(--line-subtle); background-color: var(--bg-panel); }
-.rack-register dt { font-family: var(--font-mono); font-size: 0.72rem; color: var(--ink-muted); letter-spacing: 0.06em; }
-.rack-register dd { margin: 4px 0 0; font-family: var(--font-mono); font-size: 0.9rem; font-weight: 600; }
-.rack-diagram { border-top: 1px solid var(--line-subtle); padding-top: 14px; display: flex; flex-direction: column; gap: 8px; font-family: var(--font-mono); font-size: 0.75rem; }
-.diagram-row { display: flex; justify-content: space-between; gap: 8px; color: var(--ink-secondary); }
 
 /* A viewport-sized chamber, not a workspace containing a map. */
 .game-screen {
@@ -375,7 +317,7 @@ kbd { font-family: var(--font-mono); font-size: 0.8em; }
 .status-ok { color: var(--accent-sage); }
 .status-dim { color: var(--ink-dim); }
 
-/* Story uses the same chamber renderer; no story animation changes puzzle state. */
+/* Five still-readable story beats; their presentation never changes puzzle state. */
 .opening-sequence {
   position: relative;
   height: 100vh;
@@ -387,25 +329,24 @@ kbd { font-family: var(--font-mono); font-size: 0.8em; }
 .story-brand { position: absolute; top: 28px; left: 28px; font-family: var(--font-serif); font-size: 1.2rem; }
 .story-skip { position: absolute; z-index: 4; top: 24px; right: 24px; }
 .story-skip kbd { margin-left: 8px; }
-.opening-world { position: absolute; inset: 12vh 24px 10vh; opacity: 0.65; transition: opacity 900ms ease-out; overflow: hidden; }
-.opening-sequence[data-shot='shutdown'] .opening-world { opacity: 0; }
+.opening-world { position: absolute; inset: 12vh 24px 10vh; overflow: hidden; }
 .opening-world .room-scene { padding: 0; gap: 0; grid-template-rows: minmax(0, 1fr); }
 .opening-world .scene-controls { display: none; }
-.opening-world .world-grid { transform: scale(1.025); transition: transform 6s ease-out; }
-.opening-sequence[data-door-locked='true'] .world-grid { transform: scale(1); }
+.opening-world .world-grid { transform: none; }
+[data-shot='new-body'] .door-leaf-left { animation: story-door-left 300ms ease-out; }
+[data-shot='new-body'] .door-leaf-right { animation: story-door-right 300ms ease-out; }
+@keyframes story-door-left { from { transform: translateX(-90%); } to { transform: none; } }
+@keyframes story-door-right { from { transform: translateX(90%); } to { transform: none; } }
 .opening-world .tile-exit .entity-code { visibility: hidden; }
 .opening-world .tile-exit::after { content: 'SEALED'; position: absolute; z-index: 2; bottom: 8px; font-family: var(--font-mono); font-size: 0.6rem; color: var(--accent-orange); }
-.opening-sequence[data-door-locked='false'] .door-leaf-left { transform: translateX(-90%); }
-.opening-sequence[data-door-locked='false'] .door-leaf-right { transform: translateX(90%); }
-.opening-sequence[data-door-locked='false'] .tile-exit::after { content: 'OPEN'; color: var(--accent-sage); }
-.opening-sequence[data-shot='process'] .tile-entity-player { animation: surviving-process 4s ease-out both; }
-.opening-copy { position: absolute; z-index: 3; left: 7vw; right: 7vw; bottom: 14vh; max-width: 760px; padding: 20px 24px; border-left: 2px solid var(--accent-orange); background: var(--bg-recessed); }
-.opening-register { margin: 0 0 12px; color: var(--ink-secondary); font-family: var(--font-mono); font-size: 0.72rem; }
-.opening-subtitle { margin: 0; font-family: var(--font-mono); font-size: clamp(1.1rem, 2.4vw, 1.8rem); line-height: 1.5; }
-.opening-sequence[data-shot='rules'] .opening-copy { border-color: var(--accent-sage); }
-.opening-sequence[data-shot='rules'] .opening-subtitle { animation: message-interrupt 180ms steps(2, end) both; }
-@keyframes surviving-process { from { transform: translateX(-8px); } to { transform: translateX(0); } }
-@keyframes message-interrupt { 0% { transform: translateX(-3px); } 50% { transform: translateX(3px); } 100% { transform: none; } }
+.story-dialogue { position: absolute; z-index: 3; left: 7%; right: 7%; bottom: 100px; max-width: 840px; padding: 16px 24px; border-left: 3px solid var(--accent-sage); background: #0c1014f5; color: var(--ink-paper); }
+.story-dialogue p { display: flex; gap: 16px; margin: 8px 0; font-size: clamp(1rem, 1.6vw, 1.3rem); }
+.dialogue-speaker { flex: 0 0 70px; color: var(--accent-sage); font: 0.78rem/1.8 var(--font-mono); }
+.story-dialogue [data-speaker='SYSTEM'] { color: #c2c9c4; font-family: var(--font-mono); font-size: clamp(0.85rem, 1.3vw, 1.05rem); }
+.story-dialogue [data-speaker='SYSTEM'] .dialogue-speaker { color: var(--accent-orange); }
+.story-navigation { position: absolute; z-index: 4; bottom: 24px; left: 7%; right: 7%; display: flex; align-items: center; justify-content: space-between; gap: 16px; color: var(--ink-secondary); font-family: var(--font-mono); }
+.story-navigation kbd { margin-left: 16px; }
+.story-controls { position: absolute; right: 7%; top: 15%; max-width: 300px; padding: 12px; background: #0c1014; color: var(--ink-paper); font-size: 0.9rem; border-left: 2px solid var(--accent-sage); }
 
 .chamber-arrival { position: absolute; z-index: 3; left: 24px; right: 24px; bottom: 84px; width: fit-content; max-width: calc(100% - 48px); margin: 0 auto; padding: 12px 16px; display: flex; align-items: center; gap: 16px; background: var(--bg-recessed); border-left: 2px solid var(--accent-sage); pointer-events: none; }
 .chamber-arrival p { margin: 0; font-size: 0.9rem; }
@@ -424,11 +365,6 @@ kbd { font-family: var(--font-mono); font-size: 0.8em; }
 @keyframes externalize { from { transform: translateX(-64px); } to { transform: translateX(64px); } }
 
 @media (max-width: 980px) {
-  .console-root { padding: 8px; justify-content: flex-start; }
-  .boot-layout { grid-template-columns: minmax(0, 1fr); }
-  .boot-primary { padding: 24px 20px; border-right: none; border-bottom: 1px solid var(--line-subtle); }
-  .manual-grid { grid-template-columns: minmax(0, 1fr); }
-  .boot-SideRack { padding: 20px; }
   .hud-bar { gap: 14px; padding: 12px 16px; }
   .hud-identity { gap: 14px; }
   .hud-objective { font-size: 0.8rem; }
@@ -465,12 +401,25 @@ kbd { font-family: var(--font-mono); font-size: 0.8em; }
   .nearby-interaction { min-height: 38px; justify-content: space-between; }
   .context-text { font-size: 0.78rem; }
   .settings-panel { inset: auto auto 12px 12px; width: calc(100% - 24px); max-width: none; max-height: 78dvh; padding: 18px; }
-  .boot-top-strip { flex-direction: column; align-items: flex-start; padding: 8px 12px; }
   .story-brand { top: 20px; left: 16px; }
   .story-skip { top: 16px; right: 12px; }
   .story-skip kbd { margin-left: 4px; }
   .opening-world { inset: 14vh 12px 10vh; }
-  .opening-copy { left: 20px; right: 20px; bottom: 12vh; padding: 16px; }
+  .last-session-title { min-height: 620px; }
+  .bedroom-art { width: 960px; height: 600px; left: calc(50% - 650px); top: 35px; }
+  .crt-screen { left: calc(50% - 134px); top: 168px; width: 300px; height: 212px; padding: 8px; }
+  .crt-screen h1, .story-crt-title { font-size: 3rem; }
+  .crt-online { font-size: 0.7rem; }
+  .crt-menu button { font-size: 0.85rem; padding: 7px; }
+  .crt-subtitle { font-size: 0.8rem; margin-bottom: 8px; }
+  .crt-shutdown { font-size: 0.62rem; margin-top: 8px; }
+  .title-caption { left: 20px; bottom: 24px; font-size: 0.95rem; }
+  .title-field-notes { left: 16px; bottom: 24px; padding: 16px; }
+  .story-dialogue { left: 16px; right: 16px; bottom: 108px; padding: 12px; }
+  .story-dialogue p { gap: 8px; font-size: 1rem; }
+  .dialogue-speaker { flex-basis: 58px; font-size: 0.7rem; }
+  .story-navigation { left: 16px; right: 16px; }
+  .story-controls { top: 85px; right: 16px; font-size: 0.8rem; }
   .chamber-arrival { left: 12px; right: 12px; bottom: 114px; max-width: calc(100% - 24px); padding: 10px; gap: 8px; }
   .chamber-arrival p { font-size: 0.8rem; }
   .chamber-arrival .arrival-controls { font-size: 0.72rem; }
@@ -492,7 +441,8 @@ kbd { font-family: var(--font-mono); font-size: 0.8em; }
   .opening-world, .opening-world .world-grid, .door-leaf, .frame-beam { transition: none; }
   .world-grid, .tile-entity-player .operator, .room-machine, .optical-signal, .resonator-ring, .tile-exit .entity-code, .cross-cable path { animation: none !important; }
   .opening-world .world-grid { transform: none; }
-  .opening-sequence .tile-entity-player, .opening-sequence .opening-subtitle, .escape-operator { animation: none !important; }
+  .opening-sequence .door-leaf, .bedroom-rain, .crt-cursor, .bedroom-fragments, .escape-operator { animation: none !important; }
+  [data-moment='pull'] .bedroom-fragments { opacity: 1; transform: translate(130px, -20px); }
   *, *::before, *::after {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
