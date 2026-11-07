@@ -1,15 +1,32 @@
-import { useEffect, useReducer, useState } from 'react';
+import { useEffect, useReducer, useRef, useState } from 'react';
 import { Hud } from '../components/Hud';
 import { SettingsPanel } from '../components/SettingsPanel';
 import { WorldGrid } from '../components/WorldGrid';
 import { createInitialState, gameReducer } from '../game/gameReducer';
 import { getRoomBlueprint } from '../game/levels';
-import { formatBindKey } from '../game/rules';
-import type { BindKey, Direction } from '../game/types';
+import {
+  canActivateGlyph,
+  canActivateResonator,
+  canActivateTerminal,
+  canMove,
+  formatBindKey,
+  getAudioStatus,
+  getNextPosition,
+  getTileAt,
+} from '../game/rules';
+import type { BindKey, Direction, Settings } from '../game/types';
 
-function isRangeInput(element: EventTarget | null): boolean {
+function isInteractiveControl(element: EventTarget | null): boolean {
+  if (!(element instanceof HTMLElement)) {
+    return false;
+  }
+  const tag = element.tagName;
   return (
-    element instanceof HTMLInputElement && element.type.toLowerCase() === 'range'
+    tag === 'INPUT' ||
+    tag === 'SELECT' ||
+    tag === 'TEXTAREA' ||
+    tag === 'BUTTON' ||
+    element.isContentEditable
   );
 }
 
@@ -18,16 +35,11 @@ function isTextOrSelectControl(element: EventTarget | null): boolean {
     return false;
   }
   const tag = element.tagName;
-  if (tag === 'SELECT' || tag === 'TEXTAREA' || element.isContentEditable) {
-    return true;
-  }
-  if (tag === 'INPUT' && !isRangeInput(element)) {
-    return true;
-  }
-  return false;
+  return tag === 'SELECT' || tag === 'TEXTAREA' || element.isContentEditable;
 }
 
-const ARROW_KEYS = new Set(['arrowup', 'arrowdown', 'arrowleft', 'arrowright']);
+type ToneKind = 'step' | 'blocked' | 'unlock' | 'win' | 'probe';
+
 const CANDIDATE_BIND_KEYS = new Set<BindKey>(['e', 'f', 'k']);
 
 const KEY_TO_DIRECTION: Record<string, Direction> = {
@@ -44,6 +56,136 @@ const KEY_TO_DIRECTION: Record<string, Direction> = {
 export function App() {
   const [state, dispatch] = useReducer(gameReducer, undefined, createInitialState);
   const [showManual, setShowManual] = useState(false);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  function playConsoleTone(kind: ToneKind, customSettings?: Settings) {
+    const activeSettings = customSettings ?? stateRef.current.settings;
+    if (activeSettings.muted || activeSettings.volume <= 0) {
+      return;
+    }
+
+    try {
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext?: typeof AudioContext })
+          .webkitAudioContext;
+      if (!AudioCtx) {
+        return;
+      }
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new AudioCtx();
+      }
+      const ctx = audioCtxRef.current;
+      if (ctx.state === 'suspended') {
+        void ctx.resume();
+      }
+
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const maxGain = Math.min(0.07, (activeSettings.volume / 100) * 0.065);
+
+      if (kind === 'step') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(240, now);
+        gain.gain.setValueAtTime(maxGain * 0.5, now);
+        gain.gain.exponentialRampToValueAtTime(0.0008, now + 0.045);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.05);
+      } else if (kind === 'blocked') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(110, now);
+        gain.gain.setValueAtTime(maxGain * 0.65, now);
+        gain.gain.exponentialRampToValueAtTime(0.0008, now + 0.09);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.095);
+      } else if (kind === 'unlock' || kind === 'win') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, now);
+        osc.frequency.setValueAtTime(kind === 'win' ? 660 : 554.37, now + 0.07);
+        gain.gain.setValueAtTime(maxGain, now);
+        gain.gain.exponentialRampToValueAtTime(0.0008, now + 0.22);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.23);
+      } else if (kind === 'probe') {
+        const status = getAudioStatus(activeSettings);
+        osc.type = status === 'STABLE' ? 'sine' : 'triangle';
+        const freq =
+          status === 'STABLE' ? 440 : status === 'TOO LOW' ? 260 : 620;
+        osc.frequency.setValueAtTime(freq, now);
+        gain.gain.setValueAtTime(maxGain * 0.45, now);
+        gain.gain.exponentialRampToValueAtTime(0.0008, now + 0.06);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.065);
+      }
+    } catch {
+      // Ignore Web Audio errors in headless or restricted environments
+    }
+  }
+
+  function triggerMove(direction: Direction) {
+    const current = stateRef.current;
+    if (current.phase !== 'playing') {
+      return;
+    }
+    const room = getRoomBlueprint(current.room);
+    const target = getNextPosition(current.position, direction);
+    const allowed = canMove(room, target, current.progress, current.settings);
+    const tile = getTileAt(room, target);
+
+    if (!allowed) {
+      playConsoleTone('blocked');
+    } else if (tile === 'exit') {
+      playConsoleTone(current.room === 'finale' ? 'win' : 'unlock');
+    } else {
+      playConsoleTone('step');
+    }
+
+    dispatch({ type: 'MOVE', direction });
+  }
+
+  function triggerInteract() {
+    const current = stateRef.current;
+    if (current.phase !== 'playing') {
+      return;
+    }
+    const room = getRoomBlueprint(current.room);
+    const willUnlock =
+      (current.room === 'display' &&
+        canActivateGlyph(
+          current.position,
+          room.nodePosition,
+          current.settings,
+          current.progress,
+        )) ||
+      (current.room === 'audio' &&
+        canActivateResonator(
+          current.position,
+          room.nodePosition,
+          current.settings,
+          current.progress,
+        )) ||
+      (current.room === 'controls' &&
+        canActivateTerminal(
+          current.position,
+          room.nodePosition,
+          current.settings,
+          current.progress,
+        ));
+
+    playConsoleTone(willUnlock ? 'unlock' : 'blocked');
+    dispatch({ type: 'INTERACT' });
+  }
 
   const bindLabel = formatBindKey(state.settings.interactKey);
   const currentChamber = getRoomBlueprint(state.room);
@@ -63,26 +205,17 @@ export function App() {
 
       if (direction) {
         if (
-          isTextOrSelectControl(event.target) ||
-          isTextOrSelectControl(document.activeElement)
+          isInteractiveControl(event.target) ||
+          isInteractiveControl(document.activeElement)
         ) {
           return;
-        }
-        if (
-          ARROW_KEYS.has(key) &&
-          (isRangeInput(event.target) || isRangeInput(document.activeElement))
-        ) {
-          return;
-        }
-        if (document.activeElement instanceof HTMLElement) {
-          document.activeElement.blur();
         }
         event.preventDefault();
-        dispatch({ type: 'MOVE', direction });
+        triggerMove(direction);
         return;
       }
 
-      if (key === state.settings.interactKey) {
+      if (key === stateRef.current.settings.interactKey) {
         if (
           isTextOrSelectControl(event.target) ||
           isTextOrSelectControl(document.activeElement)
@@ -93,7 +226,7 @@ export function App() {
           document.activeElement.blur();
         }
         event.preventDefault();
-        dispatch({ type: 'INTERACT' });
+        triggerInteract();
         return;
       }
 
@@ -105,13 +238,14 @@ export function App() {
           return;
         }
         event.preventDefault();
+        playConsoleTone('blocked');
         dispatch({ type: 'REJECT_UNBOUND_KEY', key: key as BindKey });
       }
     }
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [state.phase, state.settings.interactKey]);
+  }, [state.phase]);
 
   if (state.phase === 'intro') {
     return (
@@ -311,7 +445,7 @@ export function App() {
                   <span>[SECTOR 01: DISPLAY]</span>
                   <span className="status-ok">CLEARED</span>
                 </div>
-                <div className="diagram-row">
+                <div className="rack-row diagram-row">
                   <span>[SECTOR 02: AUDIO]</span>
                   <span className="status-ok">CLEARED</span>
                 </div>
@@ -337,6 +471,7 @@ export function App() {
         <Hud
           chamber={currentChamber}
           settings={state.settings}
+          progress={state.progress}
           showManual={showManual}
           onToggleManual={() => setShowManual((prev) => !prev)}
           onRestart={() => dispatch({ type: 'RESTART_GAME' })}
@@ -346,10 +481,10 @@ export function App() {
         {showManual && (
           <section className="shell-manual-banner" aria-label="How to Play Reference">
             <div className="manual-banner-item">
-              <strong>MOVEMENT:</strong> WASD or Arrow Keys
+              <strong>MOVEMENT:</strong> WASD, Arrow Keys, or On-Screen D-Pad
             </div>
             <div className="manual-banner-item">
-              <strong>INTERACT:</strong> Bound Key [{bindLabel}] or on-screen Interact button
+              <strong>INTERACT:</strong> Bound Key [{bindLabel}] or On-Screen Interact Button
             </div>
             <div className="manual-banner-item">
               <strong>OBJECTIVE:</strong> Adjust the right-hand Settings Console to unlock each sector gate.
@@ -364,18 +499,29 @@ export function App() {
             settings={state.settings}
             progress={state.progress}
             feedback={state.feedback}
-            onInteract={() => dispatch({ type: 'INTERACT' })}
+            onMove={triggerMove}
+            onInteract={triggerInteract}
           />
 
           <SettingsPanel
+            activeRoom={state.room}
             settings={state.settings}
             onBrightnessChange={(value) =>
               dispatch({ type: 'SET_BRIGHTNESS', value })
             }
-            onVolumeChange={(value) =>
-              dispatch({ type: 'SET_VOLUME', value })
-            }
-            onToggleMute={() => dispatch({ type: 'TOGGLE_MUTE' })}
+            onVolumeChange={(value) => {
+              const nextSettings = { ...state.settings, volume: value };
+              playConsoleTone('probe', nextSettings);
+              dispatch({ type: 'SET_VOLUME', value });
+            }}
+            onToggleMute={() => {
+              const nextSettings = {
+                ...state.settings,
+                muted: !state.settings.muted,
+              };
+              playConsoleTone('probe', nextSettings);
+              dispatch({ type: 'TOGGLE_MUTE' });
+            }}
             onInteractKeyChange={(value) =>
               dispatch({ type: 'SET_INTERACT_KEY', value })
             }

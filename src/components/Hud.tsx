@@ -1,9 +1,10 @@
-import { formatBindKey } from '../game/rules';
-import type { RoomBlueprint, Settings } from '../game/types';
+import { formatBindKey, isFinalGateReady } from '../game/rules';
+import type { Progress, RoomBlueprint, Settings } from '../game/types';
 
 type HudProps = {
   chamber: RoomBlueprint;
   settings: Settings;
+  progress: Progress;
   showManual: boolean;
   onToggleManual: () => void;
   onRestart: () => void;
@@ -13,6 +14,7 @@ type HudProps = {
 export function Hud({
   chamber,
   settings,
+  progress,
   showManual,
   onToggleManual,
   onRestart,
@@ -21,6 +23,14 @@ export function Hud({
   const bindLabel = formatBindKey(settings.interactKey);
   const brightnessLabel = `${String(settings.brightness).padStart(3, '0')}%`;
   const volumeLabel = `${String(settings.volume).padStart(3, '0')}%`;
+  const finaleReady = isFinalGateReady(settings, progress);
+
+  const sectors = [
+    { id: 'display', num: '01', done: progress.glyphActivated },
+    { id: 'audio', num: '02', done: progress.resonatorActivated },
+    { id: 'controls', num: '03', done: progress.terminalActivated },
+    { id: 'finale', num: '04', done: finaleReady },
+  ] as const;
 
   return (
     <header className="hud-bar" aria-label="Diagnostic Console Status">
@@ -29,6 +39,28 @@ export function Hud({
         <div className="hud-sector">
           <span className="hud-sector-code">{chamber.code}</span>
           <span className="hud-sector-title">{chamber.title}</span>
+        </div>
+        <div className="hud-sector-pips" aria-label="Sector Progression">
+          {sectors.map((sec) => {
+            const isCurrent = chamber.id === sec.id;
+            return (
+              <span
+                key={sec.id}
+                className={[
+                  'sector-pip',
+                  isCurrent ? 'pip-current' : '',
+                  sec.done ? 'pip-done' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                title={`Sector ${sec.num}: ${
+                  sec.done ? 'Linked' : isCurrent ? 'Active' : 'Standby'
+                }`}
+              >
+                {sec.num}
+              </span>
+            );
+          })}
         </div>
       </div>
 
@@ -62,6 +94,7 @@ export function Hud({
           className="console-btn console-btn-ghost"
           aria-expanded={showManual}
           onClick={onToggleManual}
+          onPointerUp={(e) => e.currentTarget.blur()}
         >
           {showManual ? 'Hide Manual' : 'How to Play'}
         </button>
@@ -69,6 +102,7 @@ export function Hud({
           type="button"
           className="console-btn console-btn-ghost"
           onClick={onRestart}
+          onPointerUp={(e) => e.currentTarget.blur()}
           data-testid="hud-restart-btn"
         >
           Restart
@@ -77,6 +111,7 @@ export function Hud({
           type="button"
           className="console-btn console-btn-ghost"
           onClick={onReturnToIntro}
+          onPointerUp={(e) => e.currentTarget.blur()}
         >
           Boot Screen
         </button>

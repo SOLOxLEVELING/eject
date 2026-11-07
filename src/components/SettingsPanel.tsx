@@ -4,10 +4,12 @@ import {
   formatBindKey,
   getAudioStatus,
   isGlyphVisible,
+  isTerminalKeyAuthorized,
 } from '../game/rules';
-import type { BindKey, Settings } from '../game/types';
+import type { BindKey, RoomId, Settings } from '../game/types';
 
 type SettingsPanelProps = {
+  activeRoom: RoomId;
   settings: Settings;
   onBrightnessChange: (value: number) => void;
   onVolumeChange: (value: number) => void;
@@ -22,6 +24,7 @@ const AVAILABLE_KEYS: readonly { key: BindKey; desc: string }[] = [
 ];
 
 export function SettingsPanel({
+  activeRoom,
   settings,
   onBrightnessChange,
   onVolumeChange,
@@ -32,6 +35,7 @@ export function SettingsPanel({
   const displayNominal = isGlyphVisible(settings.brightness);
   const audioStatus = getAudioStatus(settings);
   const audioStable = audioStatus === 'STABLE';
+  const keyAuthorized = isTerminalKeyAuthorized(settings.interactKey);
 
   return (
     <aside
@@ -54,14 +58,24 @@ export function SettingsPanel({
       <div className="settings-stack">
         {/* 01: BRIGHTNESS */}
         <section
-          className={`setting-module ${
-            displayNominal ? 'setting-module-nominal' : ''
-          }`}
+          className={[
+            'setting-module',
+            displayNominal ? 'setting-module-nominal' : '',
+            activeRoom === 'display' ? 'setting-module-active' : '',
+            activeRoom === 'finale' && !displayNominal
+              ? 'setting-module-warning'
+              : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
           aria-labelledby="setting-brightness-label"
         >
           <div className="setting-top-row">
             <div>
-              <span className="setting-code">REG 01 // DISPLAY</span>
+              <span className="setting-code">
+                REG 01 // DISPLAY{' '}
+                {activeRoom === 'display' ? '— ACTIVE SECTOR' : ''}
+              </span>
               <label
                 id="setting-brightness-label"
                 htmlFor="brightness-slider"
@@ -89,6 +103,7 @@ export function SettingsPanel({
             step={1}
             value={settings.brightness}
             onChange={(e) => onBrightnessChange(Number(e.target.value))}
+            onPointerUp={(e) => e.currentTarget.blur()}
             className="console-slider"
             style={{
               background: `linear-gradient(to right, ${
@@ -115,16 +130,21 @@ export function SettingsPanel({
 
         {/* 02: VOLUME + MUTE + STABLE-ZONE METER */}
         <section
-          className={`setting-module ${
-            audioStable
-              ? 'setting-module-nominal'
-              : 'setting-module-warning'
-          }`}
+          className={[
+            'setting-module',
+            audioStable ? 'setting-module-nominal' : 'setting-module-warning',
+            activeRoom === 'audio' ? 'setting-module-active' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
           aria-labelledby="setting-volume-label"
         >
           <div className="setting-top-row">
             <div>
-              <span className="setting-code">REG 02 // AUDIO</span>
+              <span className="setting-code">
+                REG 02 // AUDIO{' '}
+                {activeRoom === 'audio' ? '— ACTIVE SECTOR' : ''}
+              </span>
               <label
                 id="setting-volume-label"
                 htmlFor="volume-slider"
@@ -152,6 +172,7 @@ export function SettingsPanel({
             step={1}
             value={settings.volume}
             onChange={(e) => onVolumeChange(Number(e.target.value))}
+            onPointerUp={(e) => e.currentTarget.blur()}
             className="console-slider"
             style={{
               background: `linear-gradient(to right, ${
@@ -247,6 +268,7 @@ export function SettingsPanel({
               aria-checked={settings.muted}
               aria-label="Mute audio output"
               onClick={onToggleMute}
+              onPointerUp={(e) => e.currentTarget.blur()}
               className={`console-btn mute-toggle-btn ${
                 settings.muted ? 'is-muted' : 'is-unmuted'
               }`}
@@ -258,12 +280,25 @@ export function SettingsPanel({
 
         {/* 03: INTERACT KEY */}
         <section
-          className="setting-module"
+          className={[
+            'setting-module',
+            keyAuthorized ? 'setting-module-nominal' : '',
+            activeRoom === 'controls' ? 'setting-module-active' : '',
+            (activeRoom === 'controls' || activeRoom === 'finale') &&
+            !keyAuthorized
+              ? 'setting-module-warning'
+              : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
           aria-labelledby="setting-interact-label"
         >
           <div className="setting-top-row">
             <div>
-              <span className="setting-code">REG 03 // CONTROLS</span>
+              <span className="setting-code">
+                REG 03 // CONTROLS{' '}
+                {activeRoom === 'controls' ? '— ACTIVE SECTOR' : ''}
+              </span>
               <label
                 id="setting-interact-label"
                 htmlFor="interact-key-select"
@@ -284,7 +319,9 @@ export function SettingsPanel({
             <select
               id="interact-key-select"
               value={settings.interactKey}
-              onChange={(e) => onInteractKeyChange(e.target.value as BindKey)}
+              onChange={(e) => {
+                onInteractKeyChange(e.target.value as BindKey);
+              }}
               className="console-select"
               aria-label="Select Interact Key Binding"
             >
@@ -308,6 +345,7 @@ export function SettingsPanel({
                     key={item.key}
                     type="button"
                     onClick={() => onInteractKeyChange(item.key)}
+                    onPointerUp={(e) => e.currentTarget.blur()}
                     aria-pressed={active}
                     className={`keycap-btn ${active ? 'keycap-active' : ''}`}
                   >

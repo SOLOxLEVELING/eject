@@ -15,6 +15,7 @@ import {
 import type {
   AudioStatus,
   Coordinates,
+  Direction,
   Progress,
   RoomBlueprint,
   Settings,
@@ -27,6 +28,7 @@ type WorldGridProps = {
   settings: Settings;
   progress: Progress;
   feedback: string;
+  onMove: (direction: Direction) => void;
   onInteract: () => void;
 };
 
@@ -92,6 +94,7 @@ export function WorldGrid({
   settings,
   progress,
   feedback,
+  onMove,
   onInteract,
 }: WorldGridProps) {
   const bindLabel = formatBindKey(settings.interactKey);
@@ -196,6 +199,7 @@ export function WorldGrid({
 
   return (
     <section
+      key={chamber.id}
       className="viewport-panel"
       aria-label="Sector Chamber Viewport"
       data-room={chamber.id}
@@ -425,9 +429,9 @@ export function WorldGrid({
                             aria-hidden="true"
                           >
                             <span className="entity-obscured-dot" />
-                            {adjacentToNode && (
-                              <span className="entity-code">DIM</span>
-                            )}
+                            <span className="entity-code">
+                              {adjacentToNode ? 'DIM' : '?'}
+                            </span>
                           </div>
                         ) : (
                           <div
@@ -569,7 +573,10 @@ export function WorldGrid({
           </div>
         </div>
 
-        <div className="viewport-context-bar" data-ready={canInteractNow || (chamber.id === 'finale' && exitUnlocked)}>
+        <div
+          className="viewport-context-bar"
+          data-ready={canInteractNow || (chamber.id === 'finale' && exitUnlocked)}
+        >
           <span className="context-indicator" aria-hidden="true" />
           <span className="context-text" data-testid="viewport-context-hint">
             {contextualHint}
@@ -631,10 +638,57 @@ export function WorldGrid({
         </div>
 
         <div className="viewport-controls">
-          <span className="controls-hint">MOVE: WASD / ARROWS</span>
+          <div
+            className="onscreen-dpad"
+            role="group"
+            aria-label="On-screen movement controls"
+          >
+            <button
+              type="button"
+              className="dpad-btn"
+              aria-label="Move Left"
+              title="Move Left (A / Left Arrow)"
+              onClick={() => onMove('left')}
+              onPointerUp={(e) => e.currentTarget.blur()}
+            >
+              ←
+            </button>
+            <button
+              type="button"
+              className="dpad-btn"
+              aria-label="Move Up"
+              title="Move Up (W / Up Arrow)"
+              onClick={() => onMove('up')}
+              onPointerUp={(e) => e.currentTarget.blur()}
+            >
+              ↑
+            </button>
+            <button
+              type="button"
+              className="dpad-btn"
+              aria-label="Move Down"
+              title="Move Down (S / Down Arrow)"
+              onClick={() => onMove('down')}
+              onPointerUp={(e) => e.currentTarget.blur()}
+            >
+              ↓
+            </button>
+            <button
+              type="button"
+              className="dpad-btn"
+              aria-label="Move Right"
+              title="Move Right (D / Right Arrow)"
+              onClick={() => onMove('right')}
+              onPointerUp={(e) => e.currentTarget.blur()}
+            >
+              →
+            </button>
+          </div>
+
           <button
             type="button"
             onClick={onInteract}
+            onPointerUp={(e) => e.currentTarget.blur()}
             className={`console-btn interact-action-btn ${
               canInteractNow ? 'interact-btn-ready' : ''
             }`}
