@@ -13,6 +13,7 @@ export function ChamberArrival({ room, bindLabel }: ChamberArrivalProps) {
     audio: 'Light was only the first constraint.',
     controls: 'The system has heard you. It still refuses your input.',
     frame: '',
+    crosstalk: '',
     finale: '',
   }[room];
 

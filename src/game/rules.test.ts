@@ -28,18 +28,21 @@ import {
 import type { Progress, Settings } from './types';
 
 const LOCKED_PROGRESS: Progress = {
+  ...createInitialState().progress,
   glyphActivated: false,
   resonatorActivated: false,
   terminalActivated: false,
 };
 
 const UNLOCKED_DISPLAY_PROGRESS: Progress = {
+  ...createInitialState().progress,
   glyphActivated: true,
   resonatorActivated: false,
   terminalActivated: false,
 };
 
 const ALL_FLAGS_COMPLETE: Progress = {
+  ...createInitialState().progress,
   glyphActivated: true,
   resonatorActivated: true,
   terminalActivated: true,
@@ -268,6 +271,7 @@ describe('Stage 1–4 complete game rules', () => {
     // Valid live settings but missing any room flag -> fails (no skipped flags)
     expect(
       isFinalGateReady(VALID_FINALE_SETTINGS, {
+        ...ALL_FLAGS_COMPLETE,
         glyphActivated: false,
         resonatorActivated: true,
         terminalActivated: true,
@@ -275,6 +279,7 @@ describe('Stage 1–4 complete game rules', () => {
     ).toBe(false);
     expect(
       isFinalGateReady(VALID_FINALE_SETTINGS, {
+        ...ALL_FLAGS_COMPLETE,
         glyphActivated: true,
         resonatorActivated: false,
         terminalActivated: true,
@@ -282,6 +287,7 @@ describe('Stage 1–4 complete game rules', () => {
     ).toBe(false);
     expect(
       isFinalGateReady(VALID_FINALE_SETTINGS, {
+        ...ALL_FLAGS_COMPLETE,
         glyphActivated: true,
         resonatorActivated: true,
         terminalActivated: false,
@@ -325,7 +331,7 @@ describe('Stage 1–4 complete game rules', () => {
     ]);
   });
 
-  it('completes full start-to-win flow across all 5 rooms and resets all state on restart', () => {
+  it('completes full start-to-win flow across all 6 rooms and resets all state on restart', () => {
     let state = gameReducer(createInitialState(), { type: 'START_GAME' });
 
     // --- ROOM 1: DISPLAY ---
@@ -393,10 +399,19 @@ describe('Stage 1–4 complete game rules', () => {
     for (const direction of ['up', 'up', 'right', 'right', 'down', 'down', 'right', 'right', 'down', 'down', 'right', 'right', 'up', 'up', 'right'] as const) {
       state = gameReducer(state, { type: 'MOVE', direction });
     }
+    expect(state.room).toBe('crosstalk');
+    // Lens at (2,1), then a separate relay at (6,5).
+    for (const direction of ['up', 'up'] as const) state = gameReducer(state, { type: 'MOVE', direction });
+    state = gameReducer(state, { type: 'INTERACT' });
+    expect(state.progress.crossTalkStage).toBe('routed');
+    for (const direction of ['down', 'down', 'right', 'right', 'right', 'right', 'down', 'down'] as const) state = gameReducer(state, { type: 'MOVE', direction });
+    state = gameReducer(state, { type: 'INTERACT' });
+    expect(state.progress.crossTalkStage).toBe('powered');
+    for (const direction of ['up', 'up', 'up', 'up', 'right', 'right', 'down', 'down', 'right'] as const) state = gameReducer(state, { type: 'MOVE', direction });
     expect(state.room).toBe('finale');
     expect(state.position).toEqual({ x: 1, y: 3 });
 
-    // --- ROOM 5: FINALE ---
+    // --- ROOM 6: FINALE ---
     // Walk to (7,3) right next to final exit at (8,3)
     for (let i = 0; i < 6; i++) {
       state = gameReducer(state, { type: 'MOVE', direction: 'right' });

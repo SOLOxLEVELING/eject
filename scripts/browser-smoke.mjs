@@ -108,6 +108,71 @@ try {
     const { data } = await send('Page.captureScreenshot', { format: 'png' });
     await writeFile(join(process.env.SCREENSHOT_DIR, `${name}.png`), Buffer.from(data, 'base64'));
   };
+  const completeCrossTalk = async (exercise = false) => {
+    assert.equal(await room(), 'crosstalk');
+    assert.equal(await evaluate(`document.querySelector('[data-cross-stage]').dataset.crossStage`), 'unlinked');
+    assert.equal(await exit(), 'locked');
+    if (exercise) {
+      // The old room flags and already-valid audio cannot skip the optical step.
+      for (const k of ['d', 'd', 'd', 'd', 's', 's', 'k']) await key(k);
+      assert.equal(await evaluate(`document.querySelector('[data-cross-relay-state]').dataset.crossRelayState`), 'no-carrier');
+      await screenshot('03-crosstalk-no-carrier');
+      for (const k of ['w', 'w', 'a', 'a', 'a', 'a']) await key(k);
+    }
+    await key('w'); await key('w'); assert.equal(await position(), '1,1');
+    if (exercise) {
+      await key('Escape'); await range('#brightness-slider', 69); await key('Escape'); await key('k');
+      assert.equal(await evaluate(`document.querySelector('[data-cross-receiver-state]').dataset.crossReceiverState`), 'hidden');
+      assert.equal(await evaluate(`getComputedStyle(document.querySelector('[data-cross-receiver-state] .optical-signal')).opacity`), '0');
+      await screenshot('03-crosstalk-hidden-lens');
+      await key('Escape'); await focus('#brightness-slider'); await key('k');
+      assert.equal(await evaluate(`document.querySelector('[data-cross-stage]').dataset.crossStage`), 'unlinked');
+      await range('#brightness-slider', 70);
+      await delay(550); await screenshot('03-crosstalk-reveal-live'); await key('Escape');
+    }
+    await click('[data-testid="onscreen-interact-btn"]');
+    assert.equal(await evaluate(`document.querySelector('[data-cross-stage]').dataset.crossStage`), 'routed');
+    assert.equal(await evaluate(`document.querySelectorAll('.tile-node-ready').length`), 0);
+    assert.equal(await evaluate(`!!document.querySelector('[data-testid="onscreen-interact-btn"]')`), false);
+    assert.equal(await evaluate(`document.querySelector('[data-cross-receiver-state]').dataset.crossReceiverState`), 'linked');
+    assert.equal(await exit(), 'locked');
+    await screenshot('03-crosstalk-carrier-routed');
+    if (exercise) {
+      await key('Escape'); await range('#brightness-slider', 0); await range('#volume-slider', 54); await key('Escape');
+    }
+    for (const k of ['s', 's', 'd', 'd', 'd', 'd', 's', 's']) await key(k);
+    assert.equal(await position(), '5,5');
+    if (exercise) {
+      await key('k'); assert.equal(await exit(), 'locked');
+      assert.equal(await evaluate(`document.querySelector('[data-cross-relay-state]').dataset.crossRelayState`), 'too-low');
+      await key('Escape'); await range('#volume-slider', 55); await click('[role="switch"]'); await key('Escape');
+      await key('k'); assert.equal(await exit(), 'locked');
+      assert.equal(await evaluate(`document.querySelector('[data-cross-relay-state]').dataset.crossRelayState`), 'muted');
+      await screenshot('03-crosstalk-relay-muted');
+      await key('Escape'); await click('[role="switch"]'); await range('#volume-slider', 75); await key('Escape');
+      await focus('[data-testid="settings-open-btn"]'); await key('k'); assert.equal(await exit(), 'locked');
+      await focus('.game-world');
+    }
+    assert.equal(await evaluate(`document.querySelectorAll('.tile-node-ready').length`), 1);
+    await click('[data-testid="onscreen-interact-btn"]');
+    assert.equal(await evaluate(`document.querySelector('[data-cross-stage]').dataset.crossStage`), 'powered');
+    assert.equal(await exit(), 'unlocked');
+    await screenshot('03-crosstalk-exit-powered');
+    if (exercise) {
+      await key('Escape'); await range('#volume-slider', 0); await click('[role="switch"]');
+      assert.equal(await exit(), 'unlocked');
+      await range('#brightness-slider', 70); await range('#volume-slider', 75); await click('[role="switch"]'); await key('Escape');
+      await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+      assert.equal(await evaluate(`document.documentElement.scrollWidth`), 390);
+      await screenshot('03-crosstalk-mobile-room');
+      await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 720, deviceScaleFactor: 1, mobile: false });
+    }
+    if (await evaluate(`matchMedia('(prefers-reduced-motion: reduce)').matches`)) {
+      assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cable-output')).animationName`), 'none');
+    }
+    for (const k of ['w', 'w', 'w', 'w', 'd', 'd', 's', 's', 'd']) await key(k);
+    assert.equal(await room(), 'finale');
+  };
   await send('Runtime.enable');
   await send('Log.enable');
   await send('Page.enable');
@@ -326,6 +391,7 @@ try {
   await key('Escape'); await screenshot('03-frame-restored'); await key('d'); assert.equal(await position(), '3,3');
   await key('Escape'); await focus('#window-mode-select'); await key('b'); await key('Enter'); await key('Escape');
   for (const k of ['d', 'd', 's', 's', 'd', 'd', 'w', 'w', 'd']) await key(k);
+  await completeCrossTalk(true);
   assert.equal(await room(), 'finale');
   assert.deepEqual(await evaluate(`({ width: outerWidth, height: outerHeight })`), browserWindow);
   assert.equal(await evaluate(`!!document.fullscreenElement`), false);
@@ -412,6 +478,7 @@ try {
       assert(await evaluate(`parseFloat(getComputedStyle(document.querySelector('.frame-beam')).transitionDuration) <= 0.001`));
     }
     for (const k of ['w', 'w', 'd', 'd', 's', 's', 'd', 'd', 's', 's', 'd', 'd', 'w', 'w', 'd']) await key(k);
+    await completeCrossTalk();
     assert.equal(await room(), 'finale');
     for (let i = 0; i < 7; i++) await key('d');
   };
@@ -448,9 +515,10 @@ try {
   console.log(`PASS: world fills ${(dimensions.worldArea * 100).toFixed(1)}% of 1280×720; no page overflow.`);
   console.log('PASS: button/Escape menu, native Tab containment, slider/select keyboard controls, focus return, no keyboard/pointer leakage.');
   console.log(`PASS: full opening completed in ${openingDuration}ms; first-frame button, mid-sequence Escape, Enter, held-key and reduced-motion paths passed.`);
-  console.log('PASS: cold start → three original puzzles → The Frame → live-setting finale → escape scene → reset title; three complete escapes, non-blocking chamber notes, menu restart and boot return.');
+  console.log('PASS: cold start → three original puzzles → The Frame → Cross-Talk → live-setting finale → escape scene → reset title; three complete escapes, non-blocking chamber notes, menu restart and boot return.');
   console.log('PASS: OP-01 artwork, readable walls above brightness veil, glyph threshold/reveal, proximity, opening door leaves, muted/low/high/stable resonator, terminal authorization and reduced-motion art.');
   console.log('PASS: The Frame collision, live retraction, safe rejection on/beyond passage, restoration from entry side, reduced motion and unchanged browser dimensions/fullscreen; finale retains exactly three locks.');
+  console.log('PASS: Cross-Talk requires lens before relay, 69/70 reveal, latched optical carrier, stable unmuted relay, separate proximity/focus isolation, powered exit, reduced-motion cable and 390px room.');
   console.log('PASS: 390px pointer controls/overlay and no captured browser errors.');
 } finally {
   clearTimeout(watchdog);

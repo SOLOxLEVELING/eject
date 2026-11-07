@@ -120,7 +120,7 @@ describe('The Frame / in-game Window Mode', () => {
     let state: GameState = {
       ...frameState(), room: 'finale',
       settings: { brightness: 70, volume: 65, muted: false, interactKey: 'k', windowMode: 'borderless' },
-      progress: { glyphActivated: true, resonatorActivated: true, terminalActivated: true },
+      progress: { ...frameState().progress, glyphActivated: true, resonatorActivated: true, terminalActivated: true },
     };
     for (const value of ['framed', 'borderless'] as const) {
       state = gameReducer(state, { type: 'SET_WINDOW_MODE', value });

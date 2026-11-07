@@ -15,6 +15,7 @@ import {
   formatBindKey,
   getAudioStatus,
   getNextPosition,
+  getNextCrossTalkStage,
   getTileAt,
 } from '../game/rules';
 import type { BindKey, Direction, Settings } from '../game/types';
@@ -178,7 +179,8 @@ export function App() {
           room.nodePosition,
           current.settings,
           current.progress,
-        ));
+        )) ||
+      (current.room === 'crosstalk' && getNextCrossTalkStage(room, current.position, current.settings, current.progress) !== current.progress.crossTalkStage);
 
     playConsoleTone(willUnlock ? 'unlock' : 'blocked');
     dispatch({ type: 'INTERACT' });
@@ -360,7 +362,11 @@ export function App() {
                   <span className="status-dim">STANDBY</span>
                 </div>
                 <div className="diagram-row">
-                  <span>[SECTOR 05: SYSTEM EXIT]</span>
+                  <span>[SECTOR 05: CROSS-TALK]</span>
+                  <span className="status-dim">STANDBY</span>
+                </div>
+                <div className="diagram-row">
+                  <span>[SECTOR 06: SYSTEM EXIT]</span>
                   <span className="status-dim">STANDBY</span>
                 </div>
               </div>

@@ -256,6 +256,18 @@ kbd { font-family: var(--font-mono); font-size: 0.8em; }
 .gate-locks { position: absolute; z-index: 3; top: 8px; display: flex; gap: 4px; }
 .gate-lock { display: grid; place-items: center; width: 16px; height: 14px; background: #191f21; border-bottom: 3px solid var(--accent-orange); color: var(--ink-paper); font: 8px var(--font-mono); }
 .gate-lock[data-ready='true'] { border-color: var(--accent-sage); }
+/* A physical cable carries the optical signal to a distant acoustic coil. */
+.cross-cable { position: absolute; z-index: 2; inset: 0; width: 100%; height: 100%; pointer-events: none; fill: none; }
+.cross-cable path { vector-effect: non-scaling-stroke; stroke: #65766e; stroke-width: 4; stroke-linejoin: round; }
+.cross-cable .cable-jacket { stroke: #080d10; stroke-width: 12; }
+[data-cross-stage='routed'] .cable-input { stroke: var(--ink-paper); stroke-dasharray: 12 8; animation: carrier-route 600ms linear; }
+[data-cross-stage='powered'] .cable-input, [data-cross-stage='powered'] .cable-output { stroke: var(--accent-sage); }
+[data-cross-stage='powered'] .cable-output { stroke-dasharray: 12 8; animation: carrier-route 600ms linear; }
+.receiver-hood { stroke: #a4b2a8; stroke-width: 4; }
+.relay-coil { stroke: var(--accent-orange); stroke-width: 3; }
+.tile-node-activated .relay-coil { stroke: var(--accent-sage); }
+[data-cross-relay-state='no-carrier'] .resonator-wave { opacity: 0; }
+@keyframes carrier-route { from { stroke-dashoffset: 60; } to { stroke-dashoffset: 0; } }
 /* The retractable crossbar is geometry in the game, never a browser frame. */
 .tile-frame { z-index: 2; background: #1b2225; border: 0; box-shadow: none; }
 .tile-frame::before, .tile-frame::after { display: none; }
@@ -475,7 +487,7 @@ kbd { font-family: var(--font-mono); font-size: 0.8em; }
 
 @media (prefers-reduced-motion: reduce) {
   .opening-world, .opening-world .world-grid, .door-leaf, .frame-beam { transition: none; }
-  .world-grid, .tile-entity-player .operator, .room-machine, .optical-signal, .resonator-ring, .tile-exit .entity-code { animation: none !important; }
+  .world-grid, .tile-entity-player .operator, .room-machine, .optical-signal, .resonator-ring, .tile-exit .entity-code, .cross-cable path { animation: none !important; }
   .opening-world .world-grid { transform: none; }
   .opening-sequence .tile-entity-player, .opening-sequence .opening-subtitle, .escape-operator { animation: none !important; }
   *, *::before, *::after {

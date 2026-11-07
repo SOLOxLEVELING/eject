@@ -82,7 +82,7 @@ export function SettingsPanel({
         </section>
       )}
 
-      <section className="setting-module" data-active={activeRoom === 'display'}>
+      <section className="setting-module" data-active={activeRoom === 'display' || activeRoom === 'crosstalk'}>
         <div className="setting-top-row">
           <label htmlFor="brightness-slider" className="setting-label">Brightness</label>
           <output htmlFor="brightness-slider" data-testid="setting-brightness-value">
@@ -103,7 +103,7 @@ export function SettingsPanel({
         </p>
       </section>
 
-      <section className="setting-module" data-active={activeRoom === 'audio'}>
+      <section className="setting-module" data-active={activeRoom === 'audio' || activeRoom === 'crosstalk'}>
         <div className="setting-top-row">
           <label htmlFor="volume-slider" className="setting-label">Volume</label>
           <output htmlFor="volume-slider" data-testid="setting-volume-value">{settings.volume}%</output>
@@ -163,6 +163,7 @@ export function SettingsPanel({
         <p>The game shut down, but OP-01 remained. Containment is for your protection. Then change the rules.</p>
         <p>Light exposes hidden signals. The resonator needs a stable, unmuted signal. Read the terminal for its authorized input.</p>
         {(activeRoom === 'frame' || activeRoom === 'finale') && <p>Window Mode retracts or restores The Frame's passage. Choose Borderless to cross. To restore Framed, first return to the entry side; it cannot close on or behind OP-01. Window Mode is not a fourth finale lock.</p>}
+        {activeRoom === 'crosstalk' && <p>Illuminate and activate the lens first. Follow its cable to the distant relay, stabilize the unmuted audio signal, then activate the relay. Both steps latch; later setting changes do not undo them. The finale still requires its original live settings.</p>}
         <p className="settings-feedback" data-testid="telemetry-feedback">{feedback}</p>
       </details>
       <footer className="settings-actions">

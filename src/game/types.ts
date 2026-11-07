@@ -1,4 +1,4 @@
-export type RoomId = 'display' | 'audio' | 'controls' | 'frame' | 'finale';
+export type RoomId = 'display' | 'audio' | 'controls' | 'frame' | 'crosstalk' | 'finale';
 
 export type WindowMode = 'framed' | 'borderless';
 
@@ -20,6 +20,7 @@ export type Progress = {
   glyphActivated: boolean;
   resonatorActivated: boolean;
   terminalActivated: boolean;
+  crossTalkStage: 'unlinked' | 'routed' | 'powered';
 };
 
 export type Phase = 'intro' | 'cinematic' | 'playing' | 'won';
@@ -40,6 +41,7 @@ export type RoomBlueprint = {
   height: number;
   spawn: Coordinates;
   nodePosition: Coordinates;
+  relayPosition?: Coordinates;
   exitPosition: Coordinates;
   tiles: readonly (readonly TileKind[])[];
 };

@@ -6,6 +6,7 @@ import {
   formatBindKey,
   getAudioStatus,
   getFinaleDiagnostics,
+  getNextCrossTalkStage,
   getTileAt,
   isAdjacent,
   isGlyphVisible,
@@ -32,14 +33,18 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
   const keyAuthorized = isTerminalKeyAuthorized(settings.interactKey);
   const exitUnlocked = isRoomExitUnlocked(chamber.id, progress, settings);
   const adjacentToNode = isAdjacent(position, chamber.nodePosition);
+  const adjacentToRelay = Boolean(chamber.relayPosition && isAdjacent(position, chamber.relayPosition));
+  const crossTalk = chamber.id === 'crosstalk';
   const adjacentToExit = isAdjacent(position, chamber.exitPosition);
   const finaleDiagnostics = getFinaleDiagnostics(settings, progress);
   const verifiedCount = finaleDiagnostics.filter((item) => item.ready).length;
   const canInteractNow =
     (chamber.id === 'display' && canActivateGlyph(position, chamber.nodePosition, settings, progress)) ||
     (chamber.id === 'audio' && canActivateResonator(position, chamber.nodePosition, settings, progress)) ||
-    (chamber.id === 'controls' && canActivateTerminal(position, chamber.nodePosition, settings, progress));
-  const showInteract = adjacentToNode && chamber.id !== 'finale' && chamber.id !== 'frame' && !exitUnlocked;
+    (chamber.id === 'controls' && canActivateTerminal(position, chamber.nodePosition, settings, progress)) ||
+    (crossTalk && getNextCrossTalkStage(chamber, position, settings, progress) !== progress.crossTalkStage);
+  const showInteract = (adjacentToNode || adjacentToRelay) && chamber.id !== 'finale' && chamber.id !== 'frame' && !exitUnlocked &&
+    !(crossTalk && adjacentToNode && progress.crossTalkStage !== 'unlinked');
 
   // Darkness belongs to the environment; the operator, props and HUD stay readable.
   const veilOpacity = chamber.id === 'display'
@@ -47,7 +52,11 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
     : ((100 - settings.brightness) / 100) * 0.22;
 
   let contextualHint = '';
-  if (adjacentToNode) {
+  if (crossTalk && (adjacentToNode || adjacentToRelay)) {
+    contextualHint = exitUnlocked ? 'The relay is latched. The exit is powered.'
+      : adjacentToRelay ? progress.crossTalkStage === 'unlinked' ? 'Relay: no optical carrier. Trace its input cable.' : `Relay: ${audioStatus.toLowerCase()}.`
+        : progress.crossTalkStage !== 'unlinked' ? 'Carrier latched. Follow the cable.' : glyphVisible ? 'Optical receiver within reach.' : 'A lens trace needs more light.';
+  } else if (adjacentToNode) {
     if (chamber.id === 'frame') {
       contextualHint = exitUnlocked ? 'The frame has withdrawn. The passage is clear.' : 'The frame cuts through the passage. Check the world parameters.';
     } else if (exitUnlocked) {
@@ -70,6 +79,7 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
     audio: progress.resonatorActivated ? 'Linked resonator' : `Resonator: ${audioStatus}`,
     controls: progress.terminalActivated ? 'Authorized terminal' : 'Terminal: E revoked, K authorized',
     frame: 'Retractable containment frame',
+    crosstalk: progress.crossTalkStage !== 'unlinked' ? 'Linked optical receiver' : glyphVisible ? 'Revealed optical receiver' : 'Faint optical lens',
     finale: `System gate: ${verifiedCount} of 3 locks aligned`,
   }[chamber.id];
   const nodeCode = {
@@ -77,11 +87,12 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
     audio: audioStatus,
     controls: 'E: REVOKED',
     frame: settings.windowMode,
+    crosstalk: progress.crossTalkStage !== 'unlinked' ? 'CARRIER ROUTED' : glyphVisible ? 'LENS READY' : 'FAINT LENS',
     finale: `${verifiedCount}/3`,
   }[chamber.id];
 
   return (
-    <section key={chamber.id} className="room-scene" aria-label={chamber.title} data-room={chamber.id}>
+    <section key={chamber.id} className="room-scene" aria-label={chamber.title} data-room={chamber.id} data-cross-stage={crossTalk ? progress.crossTalkStage : undefined}>
       <div
         className="world-grid"
         role="grid"
@@ -92,6 +103,13 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
           gridTemplateRows: `repeat(${chamber.height}, minmax(0, 1fr))`,
         }}
       >
+        {crossTalk && (
+          <svg className="cross-cable" viewBox="0 0 900 700" preserveAspectRatio="none" aria-hidden="true">
+            <path className="cable-jacket" d="M250 150H350V350H550V550H750V350H850" />
+            <path className="cable-input" d="M250 150H350V350H550V550H650" />
+            <path className="cable-output" d="M650 550H750V350H850" />
+          </svg>
+        )}
         {chamber.tiles.map((row, y) => (
           <div key={y} className="world-row" role="row">
             {row.map((baseTile, x) => {
@@ -100,19 +118,28 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
               const isPlayer = position.x === x && position.y === y;
               const locallyLit = chamber.id !== 'display' || isTileLocallyLit(position, { x, y }, settings.brightness);
               const isNode = tile === 'node';
+              const nodeNearby = isNode && isAdjacent(position, { x, y });
+              const crossRelay = isNode && crossTalk && x === chamber.relayPosition?.x && y === chamber.relayPosition?.y;
+              const crossReceiver = isNode && crossTalk && !crossRelay;
+              const audioMachine = isNode && (chamber.id === 'audio' || crossRelay);
+              const relayCode = progress.crossTalkStage === 'unlinked' ? 'NO CARRIER' : audioStatus;
               const exposedWall = tile === 'wall' && y < chamber.height - 1 && getTileAt(chamber, { x, y: y + 1 }, settings) !== 'wall';
               const nodeActivated = isNode && (
                 (chamber.id === 'display' && progress.glyphActivated) ||
                 (chamber.id === 'audio' && progress.resonatorActivated) ||
                 (chamber.id === 'controls' && progress.terminalActivated) ||
+                (crossReceiver && progress.crossTalkStage !== 'unlinked') ||
+                (crossRelay && progress.crossTalkStage === 'powered') ||
                 (chamber.id === 'finale' && exitUnlocked)
               );
               const nodeRevealed = isNode && !nodeActivated && (
                 (chamber.id === 'display' && glyphVisible) ||
                 (chamber.id === 'audio' && audioStable) ||
-                (chamber.id === 'controls' && keyAuthorized)
+                (chamber.id === 'controls' && keyAuthorized) ||
+                (crossReceiver && glyphVisible) ||
+                (crossRelay && progress.crossTalkStage === 'routed' && audioStable)
               );
-              const nodeObscured = isNode && chamber.id === 'display' && !glyphVisible && !nodeActivated;
+              const nodeObscured = isNode && (chamber.id === 'display' || crossReceiver) && !glyphVisible && !nodeActivated;
               const nodeUnstable = isNode && !nodeActivated && !nodeRevealed && !nodeObscured;
               const tileClasses = [
                 'world-tile', `tile-${tile}`,
@@ -123,10 +150,10 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
                 nodeRevealed ? 'tile-node-revealed' : '',
                 nodeUnstable ? 'tile-node-unstable' : '',
                 nodeActivated ? 'tile-node-activated' : '',
-                isNode && canInteractNow ? 'tile-node-ready' : '',
+                nodeNearby && canInteractNow ? 'tile-node-ready' : '',
                 tile === 'exit' ? exitUnlocked ? 'tile-exit-unlocked' : 'tile-exit-locked' : '',
               ].filter(Boolean).join(' ');
-              const label = isPlayer ? 'Operator OP-01' : isFrame ? exitUnlocked ? 'Retracted frame: clear passage' : 'Containment frame: blocked passage' : isNode ? nodeLabel
+              const label = isPlayer ? 'Operator OP-01' : isFrame ? exitUnlocked ? 'Retracted frame: clear passage' : 'Containment frame: blocked passage' : isNode ? crossRelay ? `Acoustic relay: ${nodeActivated ? 'powered' : relayCode}` : nodeLabel
                 : tile === 'exit' ? exitUnlocked ? 'Open exit' : 'Sealed exit'
                   : tile === 'wall' ? 'Bulkhead wall' : 'Floor';
 
@@ -139,9 +166,11 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
                   data-coords={`${x},${y}`}
                   data-tile={tile}
                   data-frame-state={isFrame ? settings.windowMode : undefined}
+                  data-cross-receiver-state={crossReceiver ? nodeActivated ? 'linked' : glyphVisible ? 'revealed' : 'hidden' : undefined}
+                  data-cross-relay-state={crossRelay ? nodeActivated ? 'powered' : progress.crossTalkStage === 'unlinked' ? 'no-carrier' : audioStatus.toLowerCase().replaceAll(' ', '-') : undefined}
                   data-wall-face={exposedWall || undefined}
-                  data-nearby={isNode || isFrame ? adjacentToNode : tile === 'exit' ? adjacentToExit : undefined}
-                  data-audio-level={isNode && chamber.id === 'audio' ? audioStatus.toLowerCase().replaceAll(' ', '-') : undefined}
+                  data-nearby={isNode ? nodeNearby : isFrame ? adjacentToNode : tile === 'exit' ? adjacentToExit : undefined}
+                  data-audio-level={audioMachine ? audioStatus.toLowerCase().replaceAll(' ', '-') : undefined}
                   data-glyph-state={isNode && chamber.id === 'display' ? nodeActivated ? 'activated' : nodeRevealed ? 'revealed' : 'hidden' : undefined}
                   data-resonator-state={isNode && chamber.id === 'audio' ? nodeActivated ? 'activated' : audioStable ? 'stable' : 'unstable' : undefined}
                   data-terminal-state={isNode && chamber.id === 'controls' ? nodeActivated ? 'activated' : keyAuthorized ? 'authorized' : 'revoked' : undefined}
@@ -149,7 +178,7 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
                 >
                   {tile === 'wall' && !isFrame && <span className="tile-wall-mark" aria-hidden="true" />}
                   {tile === 'wall' && x === 3 && y === 0 && (
-                    <span className="wall-inscription" aria-hidden="true">{{ display: 'LIGHT LEAVES A TRACE', audio: 'SEEK A STEADY SIGNAL', controls: 'IDENTITY IS AN INPUT', frame: 'FRAME', finale: 'THREE SYSTEMS · ONE EXIT' }[chamber.id]}</span>
+                    <span className="wall-inscription" aria-hidden="true">{{ display: 'LIGHT LEAVES A TRACE', audio: 'SEEK A STEADY SIGNAL', controls: 'IDENTITY IS AN INPUT', frame: 'FRAME', crosstalk: 'CROSS-TALK', finale: 'THREE SYSTEMS · ONE EXIT' }[chamber.id]}</span>
                   )}
                   {tile === 'floor' && <span className="tile-floor-cross" aria-hidden="true" />}
                   {isFrame && (
@@ -163,9 +192,10 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
                     <div className={`tile-entity ${nodeObscured ? 'tile-entity-obscured' : nodeUnstable ? 'tile-entity-exit' : 'tile-entity-node'}`} aria-hidden="true">
                       <svg className="room-machine" viewBox="0 0 100 64" focusable="false">
                         <path className="machine-shadow" d="M9 54h82v8H9z" />
-                        {chamber.id === 'display' && (
+                        {(chamber.id === 'display' || crossReceiver) && (
                           <>
                             <path className="machine-housing" d="M18 53V15l8-8h48l8 8v38z" />
+                            {crossReceiver && <path className="receiver-hood" d="M15 11h10v43H15m60-43h10v43H75M35 4h30" />}
                             <path className="optical-socket" d="M50 12 72 32 50 52 28 32z" />
                             <g className="optical-signal">
                               <path d="m50 18 15 14-15 14-15-14zM50 24v16m-8-8h16" />
@@ -173,9 +203,10 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
                             </g>
                           </>
                         )}
-                        {chamber.id === 'audio' && (
+                        {(chamber.id === 'audio' || crossRelay) && (
                           <>
                             <path className="machine-housing" d="M18 52h64v7H18zM20 47V17h8v30m44 0V17h8v30" />
+                            {crossRelay && <path className="relay-coil" d="M10 16v28m5-28v28m70-28v28m5-28v28M9 55h82" />}
                             <circle className="resonator-ring" cx="50" cy="29" r="22" />
                             <path className="resonator-wave" d="M32 29h7l5-11 7 22 6-17 5 6h7" />
                             <path className="resonator-mute" d="m34 13 32 32" />
@@ -202,7 +233,7 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
                         )}
                       </svg>
                       <span className="entity-code">
-                        {nodeActivated ? 'LINKED' : nodeCode}
+                        {crossRelay ? nodeActivated ? 'POWERED' : relayCode : nodeActivated && !crossReceiver ? 'LINKED' : nodeCode}
                       </span>
                       {chamber.id === 'controls' && !nodeActivated && <span className="entity-code">K: AUTHORIZED</span>}
                     </div>
@@ -238,6 +269,7 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
           </div>
         ))}
         {chamber.id === 'frame' && <p className="frame-clue" role="note">THE FRAME IS PART OF THE PRISON.</p>}
+        {crossTalk && <p className="frame-clue" role="note">CATCH THE LIGHT. CARRY THE SIGNAL.</p>}
         <div className="world-luminance-veil" aria-hidden="true" style={{ opacity: veilOpacity }} />
       </div>
 

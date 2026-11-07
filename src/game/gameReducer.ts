@@ -8,6 +8,7 @@ import {
   formatBindKey,
   getAudioStatus,
   getNextPosition,
+  getNextCrossTalkStage,
   getTileAt,
   getUnmetFinaleConditions,
   isAdjacent,
@@ -27,6 +28,7 @@ export function createInitialState(): GameState {
       glyphActivated: false,
       resonatorActivated: false,
       terminalActivated: false,
+      crossTalkStage: 'unlinked',
     },
     feedback:
       'DIAGNOSTIC SHELL READY // ADJUST SYSTEM PARAMETERS OR INSPECT SECTOR VIEWPORT.',
@@ -98,6 +100,14 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const targetTile = getTileAt(room, target, state.settings);
 
       if (!canMove(room, target, state.progress, state.settings)) {
+        if (state.room === 'crosstalk' && (targetTile === 'node' || targetTile === 'exit')) {
+          return {
+            ...state,
+            feedback: state.progress.crossTalkStage === 'powered'
+              ? 'The exit is powered. Machine housings are solid; use the floor passage.'
+              : 'The circuit is incomplete. Follow the cable between the machines.',
+          };
+        }
         if (state.room === 'frame') {
           return {
             ...state,
@@ -234,6 +244,14 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         }
 
         if (state.room === 'frame') {
+          const nextRoom = ROOMS.crosstalk;
+          return {
+            ...state, room: nextRoom.id, position: { ...nextRoom.spawn },
+            feedback: 'CATCH THE LIGHT. CARRY THE SIGNAL.',
+          };
+        }
+
+        if (state.room === 'crosstalk') {
           const nextRoom = ROOMS.finale;
           const ready = isFinalGateReady(state.settings, state.progress);
           return {
@@ -241,7 +259,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
             room: nextRoom.id,
             position: { ...nextRoom.spawn },
             feedback: ready
-              ? 'FRAME CLEARED // ENTERED SECTOR 05: ALL THREE INTERLOCKS VERIFIED — WALK TO EXIT (08, 03) TO EJECT.'
+              ? 'CROSS-TALK CLEARED // ENTERED SECTOR 06: ALL THREE INTERLOCKS VERIFIED — WALK TO EXIT (08, 03) TO EJECT.'
               : getFinaleSettingFeedback(state.settings, state.progress),
           };
         }
@@ -323,8 +341,13 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         }
       } else if (state.room === 'frame') {
         moveFeedback = state.settings.windowMode === 'borderless'
-          ? 'The frame has retracted. The passage leads to the system exit.'
+          ? 'The frame has retracted. The next chamber is open.'
           : 'THE FRAME IS PART OF THE PRISON.';
+      } else if (state.room === 'crosstalk') {
+        moveFeedback = state.progress.crossTalkStage === 'powered'
+          ? 'The relay has powered the exit.'
+          : state.progress.crossTalkStage === 'routed' ? 'The carrier is routed. Follow the cable.'
+            : 'CATCH THE LIGHT. CARRY THE SIGNAL.';
       } else if (state.room === 'finale') {
         const unmet = getUnmetFinaleConditions(state.settings, state.progress);
         if (unmet.length === 0) {
@@ -349,6 +372,27 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       }
 
       const room = getRoomBlueprint(state.room);
+
+      if (state.room === 'crosstalk') {
+        const crossTalkStage = getNextCrossTalkStage(room, state.position, state.settings, state.progress);
+        if (crossTalkStage !== state.progress.crossTalkStage) {
+          return {
+            ...state, progress: { ...state.progress, crossTalkStage },
+            feedback: crossTalkStage === 'routed'
+              ? 'Optical carrier latched. The cable leads to the acoustic relay.'
+              : 'Acoustic relay latched. The exit is powered.',
+          };
+        }
+        return {
+          ...state,
+          feedback: state.progress.crossTalkStage === 'powered' ? 'The exit is powered.'
+            : isAdjacent(state.position, room.nodePosition)
+              ? state.progress.crossTalkStage === 'routed' ? 'Carrier already routed. Follow the cable.' : 'The lens needs more light.'
+              : room.relayPosition && isAdjacent(state.position, room.relayPosition)
+                ? state.progress.crossTalkStage === 'unlinked' ? 'No optical carrier. Trace the input cable back to the lens.' : `Relay: ${getAudioStatus(state.settings)}.`
+                : 'Move beside the lens or relay to interact.',
+        };
+      }
 
       if (state.room === 'frame') {
         return {

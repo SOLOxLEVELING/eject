@@ -95,9 +95,31 @@ export const FRAME_CHAMBER: RoomBlueprint = {
   ],
 };
 
+export const CROSS_TALK_CHAMBER: RoomBlueprint = {
+  id: 'crosstalk',
+  code: 'SECTOR 05 // CROSS-TALK',
+  title: 'CROSS-TALK',
+  subtitle: 'CATCH THE LIGHT. CARRY THE SIGNAL.',
+  width: 9,
+  height: 7,
+  spawn: { x: 1, y: 3 },
+  nodePosition: { x: 2, y: 1 },
+  relayPosition: { x: 6, y: 5 },
+  exitPosition: { x: 8, y: 3 },
+  tiles: [
+    ['wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall'],
+    ['wall', 'floor', 'node', 'floor', 'wall', 'floor', 'floor', 'floor', 'wall'],
+    ['wall', 'floor', 'wall', 'floor', 'wall', 'floor', 'wall', 'floor', 'wall'],
+    ['wall', 'floor', 'floor', 'floor', 'floor', 'floor', 'wall', 'floor', 'exit'],
+    ['wall', 'floor', 'wall', 'wall', 'wall', 'floor', 'wall', 'floor', 'wall'],
+    ['wall', 'floor', 'floor', 'floor', 'floor', 'floor', 'node', 'floor', 'wall'],
+    ['wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall'],
+  ],
+};
+
 export const FINALE_CHAMBER: RoomBlueprint = {
   id: 'finale',
-  code: 'SECTOR 05 // SYSTEM EXIT',
+  code: 'SECTOR 06 // SYSTEM EXIT',
   title: 'CONTAINMENT EJECT GATE',
   subtitle:
     'Final interlock requires all three sector flags plus live Brightness ≥ 70%, Volume 55–75% unmuted, and Key K.',
@@ -126,6 +148,7 @@ export const ROOMS: Record<RoomId, RoomBlueprint> = {
   audio: AUDIO_CHAMBER,
   controls: CONTROLS_CHAMBER,
   frame: FRAME_CHAMBER,
+  crosstalk: CROSS_TALK_CHAMBER,
   finale: FINALE_CHAMBER,
 };
 

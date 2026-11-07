@@ -209,6 +209,9 @@ export function isRoomExitUnlocked(
   if (roomId === 'frame') {
     return settings?.windowMode === 'borderless';
   }
+  if (roomId === 'crosstalk') {
+    return progress.crossTalkStage === 'powered';
+  }
   if (roomId === 'finale') {
     return Boolean(settings && isFinalGateReady(settings, progress));
   }
@@ -275,6 +278,22 @@ export function canActivateTerminal(
     isAdjacent(position, terminalPosition) &&
     isTerminalKeyAuthorized(settings.interactKey)
   );
+}
+
+export function getNextCrossTalkStage(
+  room: RoomBlueprint,
+  position: Coordinates,
+  settings: Settings,
+  progress: Progress,
+): Progress['crossTalkStage'] {
+  if (room.id !== 'crosstalk') return progress.crossTalkStage;
+  if (progress.crossTalkStage === 'unlinked' && isGlyphVisible(settings.brightness) && isAdjacent(position, room.nodePosition)) {
+    return 'routed';
+  }
+  if (progress.crossTalkStage === 'routed' && room.relayPosition && isAdjacent(position, room.relayPosition) && isAudioResonanceStable(settings)) {
+    return 'powered';
+  }
+  return progress.crossTalkStage;
 }
 
 export function isTileLocallyLit(

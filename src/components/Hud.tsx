@@ -13,6 +13,7 @@ const CHAMBER_NAMES = {
   audio: 'Resonance',
   controls: 'Forbidden Key',
   frame: 'The Frame',
+  crosstalk: 'Cross-Talk',
   finale: 'System Exit',
 };
 
@@ -21,16 +22,18 @@ const OBJECTIVES = {
   audio: 'Bring the silent resonator into balance.',
   controls: 'Find a way for the terminal to accept your input.',
   frame: 'Find what gives the prison its shape.',
+  crosstalk: 'Find where the signal begins.',
   finale: 'Keep the three systems aligned.',
 };
 
 export function Hud({ chamber, settings, progress, onOpenSettings }: HudProps) {
-  const roomIndex = ['display', 'audio', 'controls', 'frame', 'finale'].indexOf(chamber.id) + 1;
+  const roomIndex = ['display', 'audio', 'controls', 'frame', 'crosstalk', 'finale'].indexOf(chamber.id) + 1;
   const exitUnlocked = isRoomExitUnlocked(chamber.id, progress, settings);
   const fault = chamber.id === 'finale'
     ? getFinaleDiagnostics(settings, progress).find((item) => !item.ready)
     : undefined;
   let objective = OBJECTIVES[chamber.id];
+  if (chamber.id === 'crosstalk' && progress.crossTalkStage === 'routed') objective = 'Follow the carrier to the acoustic relay.';
   if (exitUnlocked) {
     objective = chamber.id === 'finale'
       ? 'The boundary is open. Leave the system.'
@@ -46,7 +49,7 @@ export function Hud({ chamber, settings, progress, onOpenSettings }: HudProps) {
       <div className="hud-identity">
         <span className="hud-badge">EJECT</span>
         <h1 className="hud-chamber">
-          <span className="hud-progress">{String(roomIndex).padStart(2, '0')} / 05</span>
+          <span className="hud-progress">{String(roomIndex).padStart(2, '0')} / 06</span>
           {CHAMBER_NAMES[chamber.id]}
         </h1>
       </div>
