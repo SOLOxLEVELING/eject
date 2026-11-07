@@ -1,37 +1,57 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { ROOM_STORY } from '../game/roomStory';
 import type { RoomId } from '../game/types';
+import { StoryDialogue } from './StoryDialogue';
 
 type ChamberArrivalProps = {
   room: RoomId;
   bindLabel: string;
+  complete: boolean;
+  onReturnToWorld: () => void;
 };
 
-export function ChamberArrival({ room, bindLabel }: ChamberArrivalProps) {
-  const [visible, setVisible] = useState(true);
-  const line = {
-    display: 'Find a way past the lock.',
-    audio: 'Light was only the first constraint.',
-    controls: 'The system has heard you. It still refuses your input.',
-    frame: '',
-    crosstalk: '',
-    finale: '',
-  }[room];
+export function ChamberArrival({ room, bindLabel, complete, onReturnToWorld }: ChamberArrivalProps) {
+  const [message, setMessage] = useState<'entry' | 'hint' | 'success' | null>('entry');
+  const successShown = useRef(false);
+  const noteRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setVisible(false), room === 'display' ? 8000 : 5500);
-    return () => window.clearTimeout(timer);
-  }, [room]);
+    if (complete && !successShown.current && room !== 'finale') {
+      successShown.current = true;
+      setMessage('success');
+    }
+  }, [complete, room]);
 
-  if (!visible || !line) return null;
+  useEffect(() => {
+    if (!message || message === 'hint') return;
+    const timer = window.setTimeout(() => {
+      // Never remove a focused dismiss control from under a keyboard user.
+      if (!noteRef.current?.contains(document.activeElement)) setMessage(null);
+    }, 6000);
+    return () => window.clearTimeout(timer);
+  }, [message]);
+
   return (
-    <aside className="chamber-arrival" aria-label="Chamber arrival" data-testid="chamber-arrival">
-      <div role="status">
-        <p>{line}</p>
-        {room === 'display' && (
-          <p className="arrival-controls">Move: WASD / Arrows · Interact: {bindLabel} · Settings: Esc</p>
-        )}
-      </div>
-      <button type="button" className="console-btn console-btn-ghost" onClick={() => setVisible(false)} aria-label="Dismiss chamber note">Dismiss</button>
-    </aside>
+    <>
+      <button type="button" className="console-btn room-hint-toggle" aria-label="Show chamber hint"
+        aria-controls="chamber-note" aria-expanded={message === 'hint'}
+        onClick={() => {
+          setMessage(message === 'hint' ? null : 'hint');
+          onReturnToWorld();
+        }}>?</button>
+      {message && (
+        <aside ref={noteRef} id="chamber-note" className="chamber-arrival" aria-label="Chamber dialogue"
+          data-testid="chamber-arrival" data-message={message}>
+          <div>
+            <StoryDialogue lines={[{ speaker: 'Boy', text: ROOM_STORY[room][message] }]} />
+            {room === 'display' && message === 'entry' && (
+              <p className="arrival-controls">Move: WASD / Arrows · Interact: {bindLabel} · Patch Deck below · Settings: Esc</p>
+            )}
+          </div>
+          <button type="button" className="console-btn console-btn-ghost" aria-label="Dismiss chamber note"
+            onClick={() => { setMessage(null); onReturnToWorld(); }}>Dismiss</button>
+        </aside>
+      )}
+    </>
   );
 }

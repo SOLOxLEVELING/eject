@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 type BedroomSceneProps = {
-  moment?: 'night' | 'terminated' | 'pull';
+  moment?: 'night' | 'terminated' | 'pull' | 'dawn';
   children: ReactNode;
 };
 
@@ -10,13 +10,13 @@ export function BedroomScene({ moment = 'night', children }: BedroomSceneProps) 
   return (
     <div className="bedroom-scene" data-moment={moment}>
       <svg className="bedroom-art" viewBox="0 0 1280 720" preserveAspectRatio="none" aria-hidden="true" focusable="false">
-        <path fill="#171b30" d="M0 0h1280v720H0z" />
-        <path fill="#20243a" d="M0 0h530v518H0z" />
-        <path fill="#101426" d="M530 0h750v518H530z" />
-        <path fill="#302e3b" d="M0 518h1280v202H0z" />
+        <path fill="var(--bedroom-back, #171b30)" d="M0 0h1280v720H0z" />
+        <path fill="var(--bedroom-left, #20243a)" d="M0 0h530v518H0z" />
+        <path fill="var(--bedroom-right, #101426)" d="M530 0h750v518H530z" />
+        <path fill="var(--bedroom-floor, #302e3b)" d="M0 518h1280v202H0z" />
         <path fill="none" stroke="#45404a" strokeWidth="2" d="M0 564h1280M0 642h1280M530 518 280 720m490-202 170 202M100 518 0 590m1100-72 180 104" />
-        <path fill="#0c1225" stroke="#55546a" strokeWidth="10" d="M72 72h280v267H72z" />
-        <path fill="#333c57" d="M83 244h57v84H83zm61-57h50v141h-50zm56 35h75v106h-75zm82-71h59v177h-59z" />
+        <path fill="var(--bedroom-window, #0c1225)" stroke="#55546a" strokeWidth="10" d="M72 72h280v267H72z" />
+        <path fill="var(--bedroom-city, #333c57)" d="M83 244h57v84H83zm61-57h50v141h-50zm56 35h75v106h-75zm82-71h59v177h-59z" />
         <path fill="#a1a38e" d="M159 210h7v9h-7zm57 33h7v9h-7zm83-62h7v9h-7z" />
         <g className="bedroom-rain" stroke="#8494aa" strokeWidth="2" opacity="0.45">
           <path d="m112 84-15 36m93 11-17 38m85-65-14 34m73 67-17 36m-95-8-14 34m-55-14-14 35m-5-93-13 31m185 62-13 31" />

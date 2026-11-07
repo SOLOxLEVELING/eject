@@ -19,6 +19,7 @@ import {
   getNextPosition,
   getNextCrossTalkStage,
   getTileAt,
+  isRoomExitUnlocked,
 } from '../game/rules';
 import type { BindKey, Direction, Settings } from '../game/types';
 
@@ -293,7 +294,9 @@ export function App() {
           onMove={triggerMove}
           onInteract={triggerInteract}
         />
-        <ChamberArrival key={state.room} room={state.room} bindLabel={bindLabel} />
+        <ChamberArrival key={state.room} room={state.room} bindLabel={bindLabel}
+          complete={isRoomExitUnlocked(state.room, state.progress, state.settings)}
+          onReturnToWorld={() => sceneRef.current?.focus({ preventScroll: true })} />
       </main>
 
       <PatchDeck {...settingControls} onReturnToWorld={() => sceneRef.current?.focus({ preventScroll: true })} />

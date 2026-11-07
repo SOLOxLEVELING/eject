@@ -108,10 +108,33 @@ try {
     const { data } = await send('Page.captureScreenshot', { format: 'png' });
     await writeFile(join(process.env.SCREENSHOT_DIR, `${name}.png`), Buffer.from(data, 'base64'));
   };
+  const checkRoomHint = async (moveWhileOpen = false) => {
+    const before = await position();
+    await focus('[aria-label="Show chamber hint"]'); await key('Enter');
+    assert.equal(await evaluate(`document.querySelector('[data-testid="chamber-arrival"]').dataset.message`), 'hint');
+    assert(!(await modal()));
+    assert.equal(await evaluate(`document.activeElement.className`), 'game-world');
+    assert(!(await evaluate(`/\\d|%/.test(document.querySelector('#chamber-note .story-dialogue').textContent)`)));
+    if (moveWhileOpen) {
+      await key('d'); assert.equal(await position(), '3,3');
+      await key('a'); assert.equal(await position(), before);
+      assert.equal(await evaluate(`document.querySelector('[data-testid="chamber-arrival"]').dataset.message`), 'hint');
+    }
+    await screenshot(`v3-5-hint-${await room()}`);
+    await focus('[aria-label="Dismiss chamber note"]');
+    for (const k of ['d', 'e', 'k']) await key(k);
+    assert.equal(await position(), before);
+    await key('Tab');
+    assert(!(await evaluate(`document.querySelector('#chamber-note').contains(document.activeElement)`)));
+    await click('[aria-label="Dismiss chamber note"]');
+    assert.equal(await evaluate(`document.activeElement.className`), 'game-world');
+    assert(!(await evaluate(`!!document.querySelector('#chamber-note')`)));
+  };
   const completeCrossTalk = async (exercise = false) => {
     assert.equal(await room(), 'crosstalk');
     assert.equal(await evaluate(`document.querySelector('[data-cross-stage]').dataset.crossStage`), 'unlinked');
     assert.equal(await exit(), 'locked');
+    if (exercise) await checkRoomHint();
     if (exercise) {
       // The old room flags and already-valid audio cannot skip the optical step.
       for (const k of ['d', 'd', 'd', 'd', 's', 's', 'k']) await key(k);
@@ -157,6 +180,7 @@ try {
     await click('[data-testid="onscreen-interact-btn"]');
     assert.equal(await evaluate(`document.querySelector('[data-cross-stage]').dataset.crossStage`), 'powered');
     assert.equal(await exit(), 'unlocked');
+    assert(await evaluate(`document.querySelector('#chamber-note').textContent.includes('They can finally hear each other.')`));
     await screenshot('03-crosstalk-exit-powered');
     if (exercise) {
       await key('Escape'); await range('#volume-slider', 0); await click('[role="switch"]');
@@ -267,6 +291,7 @@ try {
   await screenshot('01-cold-start');
   await click('[aria-label="Dismiss chamber note"]');
   assert(!(await evaluate(`!!document.querySelector('[data-testid="chamber-arrival"]')`)));
+  await checkRoomHint(true);
 
   // Same room and position: brightness changes spatial visibility, not only the glyph.
   const lightCenter = () => evaluate(`document.querySelector('.world-luminance-veil').dataset.lightCenter`);
@@ -415,9 +440,15 @@ try {
   await delay(350);
   assert(await evaluate(`getComputedStyle(document.querySelector('.door-leaf-left')).transform !== 'none'`));
   await screenshot('02-door-released');
+  assert.equal(await evaluate(`document.querySelector('[data-testid="chamber-arrival"]').dataset.message`), 'success');
+  await focus('[aria-label="Dismiss chamber note"]');
+  await delay(6200);
+  assert(await evaluate(`document.querySelector('#chamber-note').contains(document.activeElement)`));
+  await click('[aria-label="Dismiss chamber note"]');
   for (const k of ['s', 'd', 'd', 's', 'd']) await key(k);
   assert.equal(await room(), 'audio');
-  assert(await evaluate(`document.querySelector('[data-testid="chamber-arrival"]').textContent.includes('Light was only the first constraint.')`));
+  assert(await evaluate(`document.querySelector('[data-testid="chamber-arrival"]').textContent.includes('Something in here is listening.')`));
+  await checkRoomHint();
   for (let i = 0; i < 3; i++) await key('d');
   assert.equal(await position(), '4,3');
   assert.equal(await evaluate(`document.querySelector('[data-audio-level]').dataset.audioLevel`), 'muted');
@@ -442,7 +473,8 @@ try {
   await key('Escape'); await delay(450); await screenshot('02-resonator-stable');
   await key('e'); assert.equal(await exit(), 'unlocked');
   for (let i = 0; i < 4; i++) await key('d'); assert.equal(await room(), 'controls');
-  assert(await evaluate(`document.querySelector('[data-testid="chamber-arrival"]').textContent.includes('The system has heard you.')`));
+  assert(await evaluate(`document.querySelector('[data-testid="chamber-arrival"]').textContent.includes("It doesn't recognize my input.")`));
+  await checkRoomHint();
   for (let i = 0; i < 4; i++) await key('d');
   assert.equal(await evaluate(`document.querySelector('.terminal-key').textContent`), 'E');
   await screenshot('02-terminal-revoked');
@@ -457,6 +489,7 @@ try {
   assert.equal(await evaluate(`document.querySelector('.terminal-key').textContent`), 'K');
   await screenshot('02-terminal-authorized');
   for (let i = 0; i < 3; i++) await key('d'); assert.equal(await room(), 'frame');
+  await checkRoomHint();
   assert.equal(await exit(), 'locked');
   assert(await evaluate(`document.querySelector('.frame-clue').textContent === 'THE FRAME IS PART OF THE PRISON.'`));
   const browserWindow = await evaluate(`({ width: outerWidth, height: outerHeight })`);
@@ -502,6 +535,8 @@ try {
   await key('Escape');
   assert.deepEqual(await frameSceneSnapshot(), frameCamera);
   await screenshot('v3-4-borderless-same-position');
+  assert(await evaluate(`document.querySelector('#chamber-note').textContent.includes('The room got bigger.')`));
+  await click('[aria-label="Dismiss chamber note"]');
   await key('d'); assert.equal(await position(), '4,3');
   // Reclosing cannot crush OP-01 on the passage or strand them beyond it.
   for (const expectedPosition of ['4,3', '5,3']) {
@@ -529,10 +564,12 @@ try {
   await assertAperture(true);
   await key('Escape'); await screenshot('03-frame-restored'); await key('d'); assert.equal(await position(), '3,3');
   await key('Escape'); await focus('#window-mode-select'); await key('b'); await key('Enter'); await key('Escape');
+  assert(!(await evaluate(`!!document.querySelector('#chamber-note')`)), 'Repeated Frame toggles must not spam success dialogue');
   for (const k of ['d', 'd', 's', 's', 'd', 'd', 'w', 'w', 'd']) await key(k);
   await completeCrossTalk(true);
   assert.equal(await room(), 'finale');
   assert.equal(await evaluate(`document.querySelectorAll('.frame-aperture').length`), 0);
+  await checkRoomHint();
   assert.deepEqual(await evaluate(`({ width: outerWidth, height: outerHeight })`), browserWindow);
   assert.equal(await evaluate(`!!document.fullscreenElement`), false);
   await key('Escape'); await focus('#window-mode-select'); await key('f'); await key('Enter');
@@ -559,7 +596,27 @@ try {
   assert.equal(await evaluate(`document.querySelector('[data-settled]').dataset.settled`), 'false');
   assert.equal(await evaluate(`document.querySelector('[data-testid="play-again-btn"]').disabled`), false);
   await screenshot('03-escape-crossing');
-  await waitFor(`document.querySelector('[data-settled]')?.dataset.settled === 'true'`, 2500);
+  assert(await evaluate(`document.querySelector('.escape-screen .story-dialogue').textContent.includes('PLAYERS ONLINE: 0')`));
+  const endingStarted = Date.now();
+  await waitFor(`document.querySelector('[data-ending-stage]')?.dataset.endingStage === 'look-again'`, 2000);
+  assert(await evaluate(`document.querySelector('.escape-screen .story-dialogue').textContent.includes('Look again.')`));
+  await screenshot('v3-5-look-again');
+  await waitFor(`document.querySelector('[data-ending-stage]')?.dataset.endingStage === 'seen'`, 2000);
+  assert(await evaluate(`document.querySelector('.escape-screen .story-dialogue').textContent.includes('PLAYERS ONLINE: 1')`));
+  await delay(600);
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.escape-darkness')).opacity`), '0');
+  await screenshot('v3-5-player-seen');
+  await waitFor(`document.querySelector('[data-ending-stage]')?.dataset.endingStage === 'dawn'`, 2500);
+  assert(await evaluate(`document.querySelector('[data-moment="dawn"]').textContent.includes('THANK YOU FOR PLAYING.')`));
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.bedroom-boy')).display`), 'none');
+  await screenshot('v3-5-dawn-bedroom');
+  await waitFor(`document.querySelector('[data-settled]')?.dataset.settled === 'true'`, 6000);
+  const endingDuration = Date.now() - endingStarted;
+  assert(endingDuration >= 9500 && endingDuration < 11500, `Ending took ${endingDuration}ms`);
+  await focus('.escape-credits summary'); await key('Enter');
+  assert(await evaluate(`document.querySelector('.escape-credits').open`));
+  await key('Tab');
+  assert(!(await evaluate(`document.querySelector('.escape-credits').contains(document.activeElement)`)));
   await screenshot('03-escape-complete');
   await click('[data-testid="play-again-btn"]');
   assert(await evaluate(`!!document.querySelector('[data-phase="intro"]')`));
@@ -671,6 +728,11 @@ try {
   await escapeFreshRun();
   assert.equal(await evaluate(`document.querySelector('[data-settled]')?.dataset.settled`), 'true');
   assert.equal(await evaluate(`getComputedStyle(document.querySelector('.escape-operator')).animationName`), 'none');
+  assert(await evaluate(`document.querySelector('.escape-screen .story-dialogue').textContent.includes('Look again.')`));
+  await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  assert.equal(await evaluate(`document.documentElement.scrollWidth`), 390);
+  await screenshot('v3-5-mobile-static-ending');
+  await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 720, deviceScaleFactor: 1, mobile: false });
   await click('[data-testid="play-again-btn"]');
   assert(await evaluate(`!!document.querySelector('[data-phase="intro"]')`));
 
@@ -708,6 +770,7 @@ try {
   console.log('PASS: Cross-Talk requires lens before relay, 69/70 reveal, latched optical carrier, stable unmuted relay, separate proximity/focus isolation, powered exit, reduced-motion cable and 390px room.');
   console.log('PASS: player-centered spatial darkness, same-position 20/80 reveal, edge/movement synchronization, readable player and pointer-transparent lighting.');
   console.log(`PASS: Patch Deck leaves ${(unobscuredRoom * 100).toFixed(1)}% of room unobscured; native Tab, focus isolation, brightness/movement round trip, shared menu state and two complete deck-only settings playthroughs.`);
+  console.log(`PASS: dismissible manual hints in all six rooms, movement while reading and native focus/Tab; ordered 0 → Look again → 1 → dawn ending in ${endingDuration}ms, credits, reduced-motion recap, skip and replay.`);
   console.log('PASS: 390px pointer controls/overlay and no captured browser errors.');
 } finally {
   clearTimeout(watchdog);
