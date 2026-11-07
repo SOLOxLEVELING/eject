@@ -209,12 +209,23 @@ kbd { font-family: var(--font-mono); font-size: 0.8em; }
 .tile-node-activated .relay-coil { stroke: var(--accent-sage); }
 [data-cross-relay-state='no-carrier'] .resonator-wave { opacity: 0; }
 @keyframes carrier-route { from { stroke-dashoffset: 60; } to { stroke-dashoffset: 0; } }
-/* The retractable crossbar is geometry in the game, never a browser frame. */
+/* The aperture edge follows the existing collision choke; the camera never moves. */
+.world-grid[data-window-mode] { --frame-travel-time: 280ms; }
+.frame-aperture { position: absolute; z-index: 6; inset: 0; overflow: hidden; pointer-events: none; }
+.frame-shutter { position: absolute; top: 0; right: 0; bottom: 0; border-left: 12px solid #9a664d; background: #20282b; box-shadow: inset 12px 0 #0c1114, inset 0 0 0 10px #303b3e; transition: transform var(--frame-travel-time) ease-out; }
+.shutter-ribs { position: absolute; inset: 24px; background: repeating-linear-gradient(to bottom, #293337 0 28px, #10171a 28px 32px, #3b4749 32px 34px); border: 2px solid #465354; }
+.shutter-label { position: absolute; left: 12%; right: 12%; top: 40%; padding: 20px 12px; background: #141c1f; border-top: 2px solid #65766e; border-bottom: 2px solid #65766e; color: var(--ink-paper); text-align: center; font: 0.85rem/1.5 var(--font-mono); }
+.shutter-label span { display: block; margin-top: 8px; color: var(--accent-orange); font-size: 0.72rem; }
+.shutter-spine { position: absolute; left: 0; top: 0; bottom: 0; width: 10px; background: repeating-linear-gradient(135deg, #e97c55 0 12px, #252c2f 12px 24px); }
+[data-window-mode='borderless'] .frame-shutter { transform: translateX(100%); }
+.world-grid[data-window-mode] .frame-clue { z-index: 7; }
+.world-grid[data-window-mode] .tile-player { z-index: 8; }
+/* The existing retractable crossbar retains its deterministic passage geometry. */
 .tile-frame { z-index: 2; background: #1b2225; border: 0; box-shadow: none; }
 .tile-frame::before, .tile-frame::after { display: none; }
 .frame-mechanism { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 .frame-rail { position: absolute; inset: 0 8%; border-left: 4px solid #64736d; border-right: 4px solid #64736d; }
-.frame-beam { position: absolute; left: 12%; right: 12%; height: 50%; background: #394340; border: 3px solid var(--accent-orange); transition: transform 240ms ease-out; }
+.frame-beam { position: absolute; left: 12%; right: 12%; height: 50%; background: #394340; border: 3px solid var(--accent-orange); transition: transform var(--frame-travel-time) ease-out; }
 .frame-beam::after { content: ''; position: absolute; top: 35%; left: 20%; right: 20%; height: 5px; background: var(--accent-orange); }
 .frame-beam-top { top: 0; }
 .frame-beam-bottom { bottom: 0; }
@@ -418,6 +429,11 @@ kbd { font-family: var(--font-mono); font-size: 0.8em; }
   .frame-clue { font-size: 0.6rem; padding: 6px; }
   .frame-rail { border-width: 2px; }
   .frame-beam { border-width: 2px; }
+  .frame-shutter { border-left-width: 6px; }
+  .shutter-ribs { inset: 10px; }
+  .shutter-spine { width: 6px; }
+  .shutter-label { left: 8%; right: 8%; padding: 12px 6px; font-size: 0.65rem; }
+  .shutter-label span { font-size: 0.6rem; }
   .door-frame { width: 30px; height: 40px; border-width: 3px; }
   .gate-lock { width: 7px; height: 6px; }
   .gate-lock span { display: none; }
@@ -466,7 +482,7 @@ kbd { font-family: var(--font-mono); font-size: 0.8em; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .opening-world, .opening-world .world-grid, .door-leaf, .frame-beam { transition: none; }
+  .opening-world, .opening-world .world-grid, .door-leaf, .frame-beam, .frame-shutter { transition: none; }
   .world-grid, .tile-entity-player .operator, .room-machine, .optical-signal, .resonator-ring, .tile-exit .entity-code, .cross-cable path { animation: none !important; }
   .opening-world .world-grid { transform: none; }
   .opening-sequence .door-leaf, .bedroom-rain, .crt-cursor, .bedroom-fragments, .escape-operator { animation: none !important; }

@@ -463,6 +463,31 @@ try {
   for (const k of ['w', 'w', 'd', 'd', 's', 's']) await key(k);
   assert.equal(await position(), '3,3');
   await key('d'); assert.equal(await position(), '3,3');
+  await delay(300);
+  const frameSceneSnapshot = () => evaluate(`(() => {
+    const r = document.querySelector('.world-grid').getBoundingClientRect();
+    const p = document.querySelector('.tile-player').getBoundingClientRect();
+    return { world: [r.x, r.y, r.width, r.height], player: [p.x, p.y, p.width, p.height], position: document.querySelector('.tile-player').dataset.coords, light: document.querySelector('.world-luminance-veil').dataset.lightCenter };
+  })()`);
+  const frameCamera = await frameSceneSnapshot();
+  const assertAperture = async (closed) => {
+    assert(await evaluate(`(() => {
+      const grid = document.querySelector('.world-grid');
+      const shutter = document.querySelector('.frame-shutter');
+      const r = grid.getBoundingClientRect();
+      const s = shutter.getBoundingClientRect();
+      const passage = document.querySelector('[data-frame-state]');
+      const edge = passage.getBoundingClientRect().left;
+      return ${closed} ? passage.dataset.tile === 'wall' && Math.abs(s.left - edge) < 2 && s.width > r.width * 0.5
+        : passage.dataset.tile === 'floor' && s.left >= r.right - 2;
+    })()`), 'Visual aperture must agree with passage collision');
+  };
+  await assertAperture(true);
+  assert(await evaluate(`Number(getComputedStyle(document.querySelector('.tile-player')).zIndex) > Number(getComputedStyle(document.querySelector('.frame-aperture')).zIndex)`));
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.frame-aperture')).overflow`), 'hidden');
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.frame-aperture')).pointerEvents`), 'none');
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.frame-shutter')).transitionDuration`), '0.28s');
+  await screenshot('v3-4-framed-same-position');
   await screenshot('03-frame-sealed');
   await key('Escape'); await focus('#window-mode-select'); await key('b'); await key('Enter');
   assert.equal(await evaluate(`document.querySelector('[data-frame-state]').dataset.frameState`), 'borderless');
@@ -473,13 +498,18 @@ try {
   await delay(300);
   assert.notEqual(await evaluate(`getComputedStyle(document.querySelector('.frame-beam-top')).transform`), 'none');
   await screenshot('03-frame-retracted-live');
-  await key('Escape'); await key('d'); assert.equal(await position(), '4,3');
+  await assertAperture(false);
+  await key('Escape');
+  assert.deepEqual(await frameSceneSnapshot(), frameCamera);
+  await screenshot('v3-4-borderless-same-position');
+  await key('d'); assert.equal(await position(), '4,3');
   // Reclosing cannot crush OP-01 on the passage or strand them beyond it.
   for (const expectedPosition of ['4,3', '5,3']) {
     await key('Escape'); await focus('#window-mode-select'); await key('f'); await key('Enter');
     assert.equal(await evaluate(`document.querySelector('#window-mode-select').value`), 'borderless');
     assert(await evaluate(`document.querySelector('#window-mode-feedback').textContent.includes('Return to the entry side')`));
     assert.equal(await position(), expectedPosition);
+    await assertAperture(false);
     await screenshot(`03-frame-safe-rejection-${expectedPosition[0]}`);
     await key('Escape');
     if (expectedPosition === '4,3') await key('d');
@@ -496,11 +526,13 @@ try {
   assert.equal(await evaluate(`document.querySelector('[data-frame-state]').dataset.tile`), 'wall');
   await delay(300);
   assert.equal(await evaluate(`getComputedStyle(document.querySelector('.frame-beam-top')).transform`), 'none');
+  await assertAperture(true);
   await key('Escape'); await screenshot('03-frame-restored'); await key('d'); assert.equal(await position(), '3,3');
   await key('Escape'); await focus('#window-mode-select'); await key('b'); await key('Enter'); await key('Escape');
   for (const k of ['d', 'd', 's', 's', 'd', 'd', 'w', 'w', 'd']) await key(k);
   await completeCrossTalk(true);
   assert.equal(await room(), 'finale');
+  assert.equal(await evaluate(`document.querySelectorAll('.frame-aperture').length`), 0);
   assert.deepEqual(await evaluate(`({ width: outerWidth, height: outerHeight })`), browserWindow);
   assert.equal(await evaluate(`!!document.fullscreenElement`), false);
   await key('Escape'); await focus('#window-mode-select'); await key('f'); await key('Enter');
@@ -613,6 +645,7 @@ try {
     assert(!(await modal()));
     if (await evaluate(`matchMedia('(prefers-reduced-motion: reduce)').matches`)) {
       assert(await evaluate(`parseFloat(getComputedStyle(document.querySelector('.frame-beam')).transitionDuration) <= 0.001`));
+      assert(await evaluate(`parseFloat(getComputedStyle(document.querySelector('.frame-shutter')).transitionDuration) <= 0.001`));
     }
     for (const k of ['w', 'w', 'd', 'd', 's', 's', 'd']) await key(k);
     assert.equal(await position(), '4,3');
@@ -621,7 +654,15 @@ try {
     assert(await evaluate(`document.querySelector('#patch-frame-feedback').textContent.includes('Return to the entry side')`));
     await screenshot('v3-3-deck-frame-safe-rejection');
     await click('.patch-expansion summary'); await click('[data-testid="patch-return-btn"]');
-    for (const k of ['d', 's', 's', 'd', 'd', 'w', 'w', 'd']) await key(k);
+    for (const k of ['d', 's', 's', 'd', 'd', 'w', 'w']) await key(k);
+    assert.equal(await position(), '7,3');
+    await click('.patch-expansion summary'); await focus('#patch-frame'); await key('f'); await key('Enter');
+    assert.equal(await evaluate(`document.querySelector('#patch-frame').value`), 'borderless');
+    assert(await evaluate(`document.querySelector('#patch-frame-feedback').textContent.includes('FRAME OCCUPIED')`));
+    await assertAperture(false);
+    await screenshot('v3-4-exit-side-safe-rejection');
+    await click('.patch-expansion summary'); await click('[data-testid="patch-return-btn"]');
+    await key('d');
     await completeCrossTalk();
     assert.equal(await room(), 'finale');
     for (let i = 0; i < 7; i++) await key('d');
@@ -663,7 +704,7 @@ try {
   console.log(`PASS: bedroom title/help, all five story beats completed in ${openingDuration}ms; first-frame skip, mid-sequence Escape, click/Enter advancement, held-key isolation and reduced-motion still frames.`);
   console.log('PASS: cold start → three original puzzles → The Frame → Cross-Talk → live-setting finale → escape scene → reset title; three complete escapes, non-blocking chamber notes, menu restart and boot return.');
   console.log('PASS: OP-01 artwork, world geometry beneath spatial darkness, glyph threshold/reveal, proximity, opening door leaves, muted/low/high/stable resonator, terminal authorization and reduced-motion art.');
-  console.log('PASS: The Frame collision, live retraction, safe rejection on/beyond passage, restoration from entry side, reduced motion and unchanged browser dimensions/fullscreen; finale retains exactly three locks.');
+  console.log('PASS: The Frame room-sized shutter conceals the inaccessible half and retracts in 280ms; same-position camera/light comparison, collision alignment, safe rejection on passage/beyond/near exit, entry-side restoration, instant reduced motion, no browser resizing/fullscreen and exactly three finale locks.');
   console.log('PASS: Cross-Talk requires lens before relay, 69/70 reveal, latched optical carrier, stable unmuted relay, separate proximity/focus isolation, powered exit, reduced-motion cable and 390px room.');
   console.log('PASS: player-centered spatial darkness, same-position 20/80 reveal, edge/movement synchronization, readable player and pointer-transparent lighting.');
   console.log(`PASS: Patch Deck leaves ${(unobscuredRoom * 100).toFixed(1)}% of room unobscured; native Tab, focus isolation, brightness/movement round trip, shared menu state and two complete deck-only settings playthroughs.`);

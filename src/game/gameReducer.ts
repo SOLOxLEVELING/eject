@@ -562,7 +562,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       if (action.value === 'framed' && state.room === 'frame' && state.position.x >= ROOMS.frame.nodePosition.x) {
         return {
           ...state,
-          feedback: 'Frame blocked by OP-01. Return to the entry side before restoring Framed mode. Window Mode remains Borderless.',
+          feedback: 'FRAME OCCUPIED. Return to the entry side before closing. Window Mode stays Borderless.',
         };
       }
       return {

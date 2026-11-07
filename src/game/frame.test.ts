@@ -49,7 +49,10 @@ describe('The Frame / in-game Window Mode', () => {
 
   it('keeps the closed exit unreachable and connects every open floor tile from a fresh spawn', () => {
     const state = frameState();
-    expect(reachable(state.position, state.settings).has('8,3')).toBe(false);
+    const closedSide = reachable(state.position, state.settings);
+    expect(closedSide.has('8,3')).toBe(false);
+    // The room-sized shutter must never conceal reachable floor on the entry side.
+    expect([...closedSide].every((tile) => Number(tile.split(',')[0]) < FRAME_CHAMBER.nodePosition.x)).toBe(true);
     const open = { ...state.settings, windowMode: 'borderless' as const };
     const connected = reachable(state.position, open);
     expect(connected.has('8,3')).toBe(true);
@@ -102,11 +105,11 @@ describe('The Frame / in-game Window Mode', () => {
   });
 
   it('introduces the option only in The Frame and leaves original maps unchanged', () => {
-    for (const room of ['display', 'audio', 'controls'] as const) {
+    for (const room of ['display', 'audio', 'controls', 'crosstalk'] as const) {
       const state = { ...frameState(), room };
       expect(gameReducer(state, { type: 'SET_WINDOW_MODE', value: 'borderless' })).toBe(state);
     }
-    for (const room of [ROOMS.display, ROOMS.audio, ROOMS.controls, ROOMS.finale]) {
+    for (const room of [ROOMS.display, ROOMS.audio, ROOMS.controls, ROOMS.crosstalk, ROOMS.finale]) {
       room.tiles.forEach((row, y) => row.forEach((tile, x) => {
         expect(getTileAt(room, { x, y }, { windowMode: 'framed' })).toBe(tile);
         expect(getTileAt(room, { x, y }, { windowMode: 'borderless' })).toBe(tile);
@@ -114,6 +117,24 @@ describe('The Frame / in-game Window Mode', () => {
     }
     const title = createInitialState();
     expect(gameReducer(title, { type: 'SET_WINDOW_MODE', value: 'borderless' })).toBe(title);
+  });
+
+  it('keeps the aperture open on the danger tile and beside the exit, then clears it on restart', () => {
+    const open = gameReducer(frameState(), { type: 'SET_WINDOW_MODE', value: 'borderless' });
+    for (const position of [FRAME_CHAMBER.nodePosition, { x: 7, y: 3 }]) {
+      const state = { ...open, position };
+      const rejected = gameReducer(state, { type: 'SET_WINDOW_MODE', value: 'framed' });
+      expect(rejected.settings).toEqual(state.settings);
+      expect(rejected.position).toEqual(position);
+      expect(rejected.progress).toEqual(state.progress);
+      expect(rejected.feedback).toContain('FRAME OCCUPIED');
+      expect(getTileAt(FRAME_CHAMBER, FRAME_CHAMBER.nodePosition, rejected.settings)).toBe('floor');
+      expect(gameReducer(rejected, { type: 'RESTART_GAME' })).toEqual(createInitialState());
+    }
+    const enteredNextRoom = gameReducer({ ...open, position: { x: 7, y: 3 } }, { type: 'MOVE', direction: 'right' });
+    expect(enteredNextRoom.room).toBe('crosstalk');
+    expect(enteredNextRoom.position).toEqual(ROOMS.crosstalk.spawn);
+    expect(gameReducer(enteredNextRoom, { type: 'RESTART_GAME' }).settings.windowMode).toBe('framed');
   });
 
   it('preserves exactly three finale checks in both window modes', () => {

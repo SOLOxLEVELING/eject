@@ -35,6 +35,7 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
   const adjacentToNode = isAdjacent(position, chamber.nodePosition);
   const adjacentToRelay = Boolean(chamber.relayPosition && isAdjacent(position, chamber.relayPosition));
   const crossTalk = chamber.id === 'crosstalk';
+  const frameClosed = chamber.id === 'frame' && getTileAt(chamber, chamber.nodePosition, settings) === 'wall';
   const adjacentToExit = isAdjacent(position, chamber.exitPosition);
   const finaleDiagnostics = getFinaleDiagnostics(settings, progress);
   const verifiedCount = finaleDiagnostics.filter((item) => item.ready).length;
@@ -95,7 +96,7 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
       <div
         className="world-grid"
         role="grid"
-        data-window-mode={chamber.id === 'frame' ? settings.windowMode : undefined}
+        data-window-mode={chamber.id === 'frame' ? frameClosed ? 'framed' : 'borderless' : undefined}
         aria-label={`${chamber.title} chamber`}
         style={{
           gridTemplateColumns: `repeat(${chamber.width}, minmax(0, 1fr))`,
@@ -265,7 +266,18 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
             })}
           </div>
         ))}
-        {chamber.id === 'frame' && <p className="frame-clue" role="note">THE FRAME IS PART OF THE PRISON.</p>}
+        {chamber.id === 'frame' && (
+          <>
+            <div className="frame-aperture" aria-hidden="true">
+              <div className="frame-shutter" style={{ left: `${(chamber.nodePosition.x / chamber.width) * 100}%` }}>
+                <span className="shutter-ribs" />
+                <span className="shutter-label">CONTAINMENT SHUTTER <span>APERTURE SEALED</span></span>
+                <span className="shutter-spine" />
+              </div>
+            </div>
+            <p className="frame-clue" role="note">THE FRAME IS PART OF THE PRISON.</p>
+          </>
+        )}
         {crossTalk && <p className="frame-clue" role="note">CATCH THE LIGHT. CARRY THE SIGNAL.</p>}
         <div
           className="world-luminance-veil"
