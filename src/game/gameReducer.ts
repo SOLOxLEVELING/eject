@@ -2,16 +2,20 @@ import { DEFAULT_SETTINGS, DISPLAY_CHAMBER, getRoomBlueprint, ROOMS } from './le
 import {
   canActivateGlyph,
   canActivateResonator,
+  canActivateTerminal,
   canMove,
   clampPercentage,
   formatBindKey,
   getAudioStatus,
   getNextPosition,
   getTileAt,
+  getUnmetFinaleConditions,
   isAdjacent,
+  isFinalGateReady,
   isGlyphVisible,
+  isTerminalKeyAuthorized,
 } from './rules';
-import type { GameAction, GameState } from './types';
+import type { GameAction, GameState, Settings } from './types';
 
 export function createInitialState(): GameState {
   return {
@@ -24,8 +28,20 @@ export function createInitialState(): GameState {
       resonatorActivated: false,
       terminalActivated: false,
     },
-    feedback: 'DIAGNOSTIC SHELL READY // ADJUST SYSTEM PARAMETERS OR INSPECT SECTOR VIEWPORT.',
+    feedback:
+      'DIAGNOSTIC SHELL READY // ADJUST SYSTEM PARAMETERS OR INSPECT SECTOR VIEWPORT.',
   };
+}
+
+function getFinaleSettingFeedback(
+  nextSettings: Settings,
+  progress: GameState['progress'],
+): string {
+  const unmet = getUnmetFinaleConditions(nextSettings, progress);
+  if (unmet.length === 0) {
+    return 'FINAL INTERLOCK VERIFIED // ALL THREE SUBSYSTEMS NOMINAL — ESCAPE GATE AT (08, 03) OPEN.';
+  }
+  return `FINAL GATE LOCKED // UNMET: ${unmet.join(' · ')}.`;
 }
 
 export function gameReducer(state: GameState, action: GameAction): GameState {
@@ -40,11 +56,40 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           'SECTOR 01 ENGAGED // MOVE WITH WASD/ARROWS. RAISE BRIGHTNESS TO ≥ 70% TO REVEAL THE HIDDEN GLYPH.',
       };
 
+    case 'RESTART_GAME':
+      return {
+        ...createInitialState(),
+        phase: 'playing',
+        feedback:
+          'SESSION RESTARTED // ALL SYSTEM REGISTERS AND SECTOR FLAGS RESET TO DEFAULT.',
+      };
+
     case 'RETURN_TO_INTRO':
+      return createInitialState();
+
+    case 'REJECT_UNBOUND_KEY': {
+      if (state.phase !== 'playing') {
+        return state;
+      }
+      const pressedUpper = formatBindKey(action.key);
+      if (state.room === 'controls') {
+        if (action.key === 'k') {
+          return {
+            ...state,
+            feedback:
+              'KEY [K] IS CURRENTLY UNBOUND // REMAP INTERACT KEY BINDING TO [K] IN SYSTEM SETTINGS FIRST.',
+          };
+        }
+        return {
+          ...state,
+          feedback: `KEY [${pressedUpper}] REVOKED & UNBOUND // PRESS AUTHORIZED KEY [${bindLabel}] OR CLICK INTERACT.`,
+        };
+      }
       return {
         ...state,
-        phase: 'intro',
+        feedback: `KEY [${pressedUpper}] UNBOUND // ACTIVE INTERACT KEY IS [${bindLabel}].`,
       };
+    }
 
     case 'MOVE': {
       if (state.phase !== 'playing') {
@@ -55,7 +100,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const target = getNextPosition(state.position, action.direction);
       const targetTile = getTileAt(room, target);
 
-      if (!canMove(room, target, state.progress)) {
+      if (!canMove(room, target, state.progress, state.settings)) {
         if (targetTile === 'exit') {
           if (state.room === 'display') {
             return {
@@ -75,9 +120,18 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
                   : `EXIT GATE LOCKED [${audioStatus}] // SET VOLUME 55–75% WITH MUTE OFF AND ACTIVATE RESONATOR.`,
             };
           }
+          if (state.room === 'controls') {
+            return {
+              ...state,
+              feedback: isTerminalKeyAuthorized(state.settings.interactKey)
+                ? 'EXIT GATE LOCKED // STAND ADJACENT TO THE TERMINAL AT (05, 02) AND PRESS [K].'
+                : `EXIT GATE LOCKED // PROTOCOL REQUIRES KEY [K] (CURRENT: [${bindLabel}]) — REMAP INTERACT TO [K] AND ACTIVATE TERMINAL.`,
+            };
+          }
+          const unmet = getUnmetFinaleConditions(state.settings, state.progress);
           return {
             ...state,
-            feedback: 'SECTOR 03 EXIT LOCKED // STAGE 3 PLACEHOLDER CHECKPOINT.',
+            feedback: `FINAL ESCAPE GATE LOCKED // UNMET: ${unmet.join(' · ')}.`,
           };
         }
 
@@ -86,7 +140,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
             if (state.progress.glyphActivated) {
               return {
                 ...state,
-                feedback: 'OPTICAL GLYPH SOCKET ACTIVE // EXIT GATE AT (08, 03) IS UNLOCKED.',
+                feedback:
+                  'OPTICAL GLYPH SOCKET ACTIVE // EXIT GATE AT (08, 03) IS UNLOCKED.',
               };
             }
             return {
@@ -100,7 +155,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
             if (state.progress.resonatorActivated) {
               return {
                 ...state,
-                feedback: 'ACOUSTIC RESONATOR ACTIVE // EXIT GATE AT (08, 03) IS UNLOCKED.',
+                feedback:
+                  'ACOUSTIC RESONATOR ACTIVE // EXIT GATE AT (08, 03) IS UNLOCKED.',
               };
             }
             const audioStatus = getAudioStatus(state.settings);
@@ -112,9 +168,24 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
                   : `RESONATOR PEDESTAL [${audioStatus}] // TUNE VOLUME TO 55–75% WITH MUTE OFF.`,
             };
           }
+          if (state.room === 'controls') {
+            if (state.progress.terminalActivated) {
+              return {
+                ...state,
+                feedback:
+                  'KEYBIND TERMINAL AUTHORIZED // EXIT GATE AT (08, 03) IS UNLOCKED.',
+              };
+            }
+            return {
+              ...state,
+              feedback: isTerminalKeyAuthorized(state.settings.interactKey)
+                ? 'TERMINAL READY [KEY K AUTHORIZED] // PRESS [K] OR CLICK INTERACT TO UNLOCK EXIT.'
+                : `TERMINAL REJECTS KEY [${bindLabel}] // E: REVOKED / K: AUTHORIZED — REMAP INTERACT TO [K].`,
+            };
+          }
           return {
             ...state,
-            feedback: 'KEYBIND TERMINAL PEDESTAL // AWAITING STAGE 4 CALIBRATION.',
+            feedback: getFinaleSettingFeedback(state.settings, state.progress),
           };
         }
 
@@ -124,26 +195,51 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         };
       }
 
-      if (targetTile === 'exit' && state.room === 'display') {
-        const nextRoom = ROOMS.audio;
-        const audioStatus = getAudioStatus(state.settings);
-        return {
-          ...state,
-          room: nextRoom.id,
-          position: { ...nextRoom.spawn },
-          feedback: `SECTOR 01 CLEARED // ENTERED SECTOR 02: AUDIO [${audioStatus}] — TUNE VOLUME 55–75% WITH MUTE OFF.`,
-        };
-      }
+      if (targetTile === 'exit') {
+        if (state.room === 'display') {
+          const nextRoom = ROOMS.audio;
+          const audioStatus = getAudioStatus(state.settings);
+          return {
+            ...state,
+            room: nextRoom.id,
+            position: { ...nextRoom.spawn },
+            feedback: `SECTOR 01 CLEARED // ENTERED SECTOR 02: AUDIO [${audioStatus}] — TUNE VOLUME 55–75% WITH MUTE OFF.`,
+          };
+        }
 
-      if (targetTile === 'exit' && state.room === 'audio') {
-        const nextRoom = ROOMS.controls;
-        return {
-          ...state,
-          room: nextRoom.id,
-          position: { ...nextRoom.spawn },
-          feedback:
-            'SECTOR 02 CLEARED // ENTERED SECTOR 03: KEYBIND AUTHORIZATION BAY (STAGE 3 PLACEHOLDER).',
-        };
+        if (state.room === 'audio') {
+          const nextRoom = ROOMS.controls;
+          return {
+            ...state,
+            room: nextRoom.id,
+            position: { ...nextRoom.spawn },
+            feedback:
+              'SECTOR 02 CLEARED // ENTERED SECTOR 03: E: REVOKED / K: AUTHORIZED — REBIND INTERACT TO [K].',
+          };
+        }
+
+        if (state.room === 'controls') {
+          const nextRoom = ROOMS.finale;
+          const ready = isFinalGateReady(state.settings, state.progress);
+          return {
+            ...state,
+            room: nextRoom.id,
+            position: { ...nextRoom.spawn },
+            feedback: ready
+              ? 'SECTOR 03 CLEARED // ENTERED SECTOR 04: ALL THREE INTERLOCKS VERIFIED — WALK TO EXIT (08, 03) TO EJECT.'
+              : getFinaleSettingFeedback(state.settings, state.progress),
+          };
+        }
+
+        if (state.room === 'finale') {
+          return {
+            ...state,
+            position: target,
+            phase: 'won',
+            feedback:
+              'CONTAINMENT OVERRIDE COMPLETE // SYSTEM EJECT SEQUENCE EXECUTED.',
+          };
+        }
       }
 
       let moveFeedback = `OPERATOR POSITION // (X:0${target.x}, Y:0${target.y}).`;
@@ -190,8 +286,35 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
             moveFeedback = `BULKHEAD GATE LOCKED [${audioStatus}] // CALIBRATE RESONATOR AT (X:04, Y:02) TO 55–75% UNMUTED.`;
           }
         }
-      } else {
-        moveFeedback = `SECTOR 03 PLACEHOLDER // OPERATOR AT (X:0${target.x}, Y:0${target.y}).`;
+      } else if (state.room === 'controls') {
+        if (isAdjacent(target, room.nodePosition)) {
+          if (state.progress.terminalActivated) {
+            moveFeedback =
+              'ADJACENT TO AUTHORIZED TERMINAL // PROCEED TO THE OPEN EXIT AT (X:08, Y:03).';
+          } else if (isTerminalKeyAuthorized(state.settings.interactKey)) {
+            moveFeedback =
+              'TERMINAL IN RANGE [K: AUTHORIZED] // PRESS [K] OR CLICK INTERACT TO UNLOCK EXIT.';
+          } else {
+            moveFeedback = `TERMINAL REJECTS [${bindLabel}] (E: REVOKED / K: AUTHORIZED) // REMAP INTERACT TO [K] IN SETTINGS.`;
+          }
+        } else if (isAdjacent(target, room.exitPosition)) {
+          if (state.progress.terminalActivated) {
+            moveFeedback =
+              'BULKHEAD GATE DISENGAGED // STEP RIGHT ONTO (X:08, Y:03) TO ENTER SYSTEM EXIT.';
+          } else {
+            moveFeedback =
+              'BULKHEAD GATE LOCKED // REBIND INTERACT TO [K] AND AUTHORIZE TERMINAL AT (X:05, Y:02).';
+          }
+        }
+      } else if (state.room === 'finale') {
+        const unmet = getUnmetFinaleConditions(state.settings, state.progress);
+        if (unmet.length === 0) {
+          moveFeedback = isAdjacent(target, room.exitPosition)
+            ? 'FINAL ESCAPE GATE OPEN // STEP RIGHT ONTO (X:08, Y:03) TO EJECT FROM SYSTEM.'
+            : `ALL INTERLOCKS VERIFIED // PROCEED TO OPEN ESCAPE GATE AT (X:08, Y:03).`;
+        } else {
+          moveFeedback = `FINAL GATE LOCKED // UNMET: ${unmet.join(' · ')}.`;
+        }
       }
 
       return {
@@ -314,9 +437,51 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         };
       }
 
+      if (state.room === 'controls') {
+        if (
+          canActivateTerminal(
+            state.position,
+            room.nodePosition,
+            state.settings,
+            state.progress,
+          )
+        ) {
+          return {
+            ...state,
+            progress: {
+              ...state.progress,
+              terminalActivated: true,
+            },
+            feedback:
+              'TERMINAL AUTHORIZED [KEY K] // SECTOR 03 EXIT LOCK DISENGAGED — WALK ONTO EXIT AT (X:08, Y:03).',
+          };
+        }
+
+        if (isAdjacent(state.position, room.nodePosition)) {
+          if (state.progress.terminalActivated) {
+            return {
+              ...state,
+              feedback:
+                'TERMINAL ALREADY AUTHORIZED // WALK ONTO THE OPEN EXIT AT (X:08, Y:03).',
+            };
+          }
+          return {
+            ...state,
+            feedback: `TERMINAL ACCESS DENIED // KEY [${bindLabel}] REVOKED (E: REVOKED / K: AUTHORIZED) — REBIND INTERACT TO [K].`,
+          };
+        }
+
+        return {
+          ...state,
+          feedback: isTerminalKeyAuthorized(state.settings.interactKey)
+            ? 'NO ACTUATOR IN RANGE // STAND ADJACENT TO THE TERMINAL AT (X:05, Y:02) AND PRESS [K].'
+            : `TERMINAL PROTOCOL: E: REVOKED / K: AUTHORIZED // REBIND INTERACT TO [K] AND APPROACH TERMINAL (05, 02).`,
+        };
+      }
+
       return {
         ...state,
-        feedback: 'SECTOR 03 PLACEHOLDER // KEYBIND TERMINAL OFFLINE IN STAGE 3.',
+        feedback: getFinaleSettingFeedback(state.settings, state.progress),
       };
     }
 
@@ -334,6 +499,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         } else {
           feedback = `LUMINANCE ${String(brightness).padStart(3, '0')}% // BELOW 70% THRESHOLD — OPTICAL GLYPH REMAINS OBSCURED.`;
         }
+      } else if (state.room === 'finale') {
+        feedback = getFinaleSettingFeedback(nextSettings, state.progress);
       }
 
       return {
@@ -353,7 +520,9 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const volText = `${String(volume).padStart(3, '0')}%`;
 
       let feedback = `ACOUSTIC GAIN ${volText} [${audioStatus}] // TARGET STABLE BAND IS 55–75% UNMUTED.`;
-      if (audioStatus === 'MUTED') {
+      if (state.room === 'finale') {
+        feedback = getFinaleSettingFeedback(nextSettings, state.progress);
+      } else if (audioStatus === 'MUTED') {
         feedback = `ACOUSTIC GAIN ${volText} [MUTED] // UNMUTE AUDIO OUTPUT TO ENGAGE RESONANCE BAND (55–75%).`;
       } else if (audioStatus === 'STABLE') {
         feedback = `ACOUSTIC GAIN ${volText} [STABLE] // RESONANCE IN 55–75% BAND — STAND ADJACENT TO RESONATOR AND PRESS [${bindLabel}].`;
@@ -373,14 +542,19 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       };
       const audioStatus = getAudioStatus(nextSettings);
 
+      const feedback =
+        state.room === 'finale'
+          ? getFinaleSettingFeedback(nextSettings, state.progress)
+          : action.value
+            ? 'AUDIO BUS CLAMPED [MUTED] // RESONANCE SIGNAL SUPPRESSED.'
+            : audioStatus === 'STABLE'
+              ? `AUDIO BUS UNCLAMPED [STABLE: ${nextSettings.volume}%] // RESONANCE READY FOR ACTIVATION.`
+              : `AUDIO BUS UNCLAMPED [${audioStatus}: ${nextSettings.volume}%] // TUNE VOLUME TO 55–75% STABLE BAND.`;
+
       return {
         ...state,
         settings: nextSettings,
-        feedback: action.value
-          ? 'AUDIO BUS CLAMPED [MUTED] // RESONANCE SIGNAL SUPPRESSED.'
-          : audioStatus === 'STABLE'
-            ? `AUDIO BUS UNCLAMPED [STABLE: ${nextSettings.volume}%] // RESONANCE READY FOR ACTIVATION.`
-            : `AUDIO BUS UNCLAMPED [${audioStatus}: ${nextSettings.volume}%] // TUNE VOLUME TO 55–75% STABLE BAND.`,
+        feedback,
       };
     }
 
@@ -392,26 +566,43 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       };
       const audioStatus = getAudioStatus(nextSettings);
 
+      const feedback =
+        state.room === 'finale'
+          ? getFinaleSettingFeedback(nextSettings, state.progress)
+          : nextMuted
+            ? 'AUDIO BUS CLAMPED [MUTED] // RESONANCE SIGNAL SUPPRESSED.'
+            : audioStatus === 'STABLE'
+              ? `AUDIO BUS UNCLAMPED [STABLE: ${nextSettings.volume}%] // RESONANCE READY FOR ACTIVATION.`
+              : `AUDIO BUS UNCLAMPED [${audioStatus}: ${nextSettings.volume}%] // TUNE VOLUME TO 55–75% STABLE BAND.`;
+
       return {
         ...state,
         settings: nextSettings,
-        feedback: nextMuted
-          ? 'AUDIO BUS CLAMPED [MUTED] // RESONANCE SIGNAL SUPPRESSED.'
-          : audioStatus === 'STABLE'
-            ? `AUDIO BUS UNCLAMPED [STABLE: ${nextSettings.volume}%] // RESONANCE READY FOR ACTIVATION.`
-            : `AUDIO BUS UNCLAMPED [${audioStatus}: ${nextSettings.volume}%] // TUNE VOLUME TO 55–75% STABLE BAND.`,
+        feedback,
       };
     }
 
     case 'SET_INTERACT_KEY': {
       const nextLabel = formatBindKey(action.value);
+      const nextSettings = {
+        ...state.settings,
+        interactKey: action.value,
+      };
+
+      let feedback = `ACTUATOR INTERRUPT REBOUND // PRIMARY KEY [${nextLabel}].`;
+      if (state.room === 'controls' && !state.progress.terminalActivated) {
+        feedback =
+          action.value === 'k'
+            ? 'ACTUATOR REBOUND TO [K] (AUTHORIZED) // STAND ADJACENT TO TERMINAL AT (05, 02) AND PRESS [K].'
+            : `ACTUATOR REBOUND TO [${nextLabel}] (REVOKED) // TERMINAL REQUIRES KEY [K].`;
+      } else if (state.room === 'finale') {
+        feedback = getFinaleSettingFeedback(nextSettings, state.progress);
+      }
+
       return {
         ...state,
-        settings: {
-          ...state.settings,
-          interactKey: action.value,
-        },
-        feedback: `ACTUATOR INTERRUPT REBOUND // PRIMARY KEY [${nextLabel}].`,
+        settings: nextSettings,
+        feedback,
       };
     }
 

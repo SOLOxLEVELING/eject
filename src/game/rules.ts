@@ -3,6 +3,7 @@ import type {
   BindKey,
   Coordinates,
   Direction,
+  FinaleCheckItem,
   Progress,
   RoomBlueprint,
   RoomId,
@@ -13,6 +14,7 @@ import type {
 export const GLYPH_BRIGHTNESS_THRESHOLD = 70;
 export const AUDIO_STABLE_MIN = 55;
 export const AUDIO_STABLE_MAX = 75;
+export const REQUIRED_TERMINAL_KEY: BindKey = 'k';
 
 export function clampPercentage(value: number): number {
   if (Number.isNaN(value)) {
@@ -61,6 +63,10 @@ export function isAudioResonanceStable(
   return getAudioStatus(settings) === 'STABLE';
 }
 
+export function isTerminalKeyAuthorized(interactKey: BindKey): boolean {
+  return interactKey === REQUIRED_TERMINAL_KEY;
+}
+
 export function getManhattanDistance(a: Coordinates, b: Coordinates): number {
   return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
 }
@@ -107,15 +113,95 @@ export function getTileAt(
   return room.tiles[target.y]?.[target.x] ?? null;
 }
 
+export function getFinaleDiagnostics(
+  settings: Settings,
+  progress: Progress,
+): readonly FinaleCheckItem[] {
+  const displayReady =
+    progress.glyphActivated && isGlyphVisible(settings.brightness);
+  let displayDetail = `VERIFIED (${settings.brightness}% ≥ 70%)`;
+  if (!progress.glyphActivated) {
+    displayDetail = 'SECTOR 01 GLYPH UNLINKED';
+  } else if (!isGlyphVisible(settings.brightness)) {
+    displayDetail = `BRIGHTNESS ${settings.brightness}% (< 70%)`;
+  }
+
+  const audioStatus = getAudioStatus(settings);
+  const audioReady =
+    progress.resonatorActivated && isAudioResonanceStable(settings);
+  let audioDetail = `VERIFIED (${settings.volume}% UNMUTED)`;
+  if (!progress.resonatorActivated) {
+    audioDetail = 'SECTOR 02 RESONATOR UNLINKED';
+  } else if (settings.muted) {
+    audioDetail = 'AUDIO BUS MUTED';
+  } else if (audioStatus !== 'STABLE') {
+    audioDetail = `VOLUME ${audioStatus} (${settings.volume}% ≠ 55–75%)`;
+  }
+
+  const controlsReady =
+    progress.terminalActivated && isTerminalKeyAuthorized(settings.interactKey);
+  const bindUpper = formatBindKey(settings.interactKey);
+  let controlsDetail = 'VERIFIED (KEY [K])';
+  if (!progress.terminalActivated) {
+    controlsDetail = 'SECTOR 03 TERMINAL UNLINKED';
+  } else if (!isTerminalKeyAuthorized(settings.interactKey)) {
+    controlsDetail = `KEY [${bindUpper}] REVOKED (NEEDS [K])`;
+  }
+
+  return [
+    {
+      id: 'display',
+      label: '01 // DISPLAY',
+      ready: displayReady,
+      detail: displayDetail,
+    },
+    {
+      id: 'audio',
+      label: '02 // AUDIO',
+      ready: audioReady,
+      detail: audioDetail,
+    },
+    {
+      id: 'controls',
+      label: '03 // CONTROLS',
+      ready: controlsReady,
+      detail: controlsDetail,
+    },
+  ];
+}
+
+export function getUnmetFinaleConditions(
+  settings: Settings,
+  progress: Progress,
+): string[] {
+  return getFinaleDiagnostics(settings, progress)
+    .filter((item) => !item.ready)
+    .map((item) => item.detail);
+}
+
+export function isFinalGateReady(
+  settings: Settings,
+  progress: Progress,
+): boolean {
+  return getFinaleDiagnostics(settings, progress).every((item) => item.ready);
+}
+
 export function isRoomExitUnlocked(
   roomId: RoomId,
   progress: Progress,
+  settings?: Settings,
 ): boolean {
   if (roomId === 'display') {
     return progress.glyphActivated;
   }
   if (roomId === 'audio') {
     return progress.resonatorActivated;
+  }
+  if (roomId === 'controls') {
+    return progress.terminalActivated;
+  }
+  if (roomId === 'finale') {
+    return Boolean(settings && isFinalGateReady(settings, progress));
   }
   return false;
 }
@@ -124,6 +210,7 @@ export function canMove(
   room: RoomBlueprint,
   target: Coordinates,
   progress: Progress,
+  settings?: Settings,
 ): boolean {
   const tile = getTileAt(room, target);
   if (!tile) {
@@ -133,7 +220,7 @@ export function canMove(
     return true;
   }
   if (tile === 'exit') {
-    return isRoomExitUnlocked(room.id, progress);
+    return isRoomExitUnlocked(room.id, progress, settings);
   }
   return false;
 }
@@ -163,6 +250,21 @@ export function canActivateResonator(
   }
   return (
     isAdjacent(position, resonatorPosition) && isAudioResonanceStable(settings)
+  );
+}
+
+export function canActivateTerminal(
+  position: Coordinates,
+  terminalPosition: Coordinates,
+  settings: Settings,
+  progress: Progress,
+): boolean {
+  if (progress.terminalActivated) {
+    return false;
+  }
+  return (
+    isAdjacent(position, terminalPosition) &&
+    isTerminalKeyAuthorized(settings.interactKey)
   );
 }
 

@@ -6,6 +6,7 @@ type HudProps = {
   settings: Settings;
   showManual: boolean;
   onToggleManual: () => void;
+  onRestart: () => void;
   onReturnToIntro: () => void;
 };
 
@@ -14,6 +15,7 @@ export function Hud({
   settings,
   showManual,
   onToggleManual,
+  onRestart,
   onReturnToIntro,
 }: HudProps) {
   const bindLabel = formatBindKey(settings.interactKey);
@@ -62,6 +64,14 @@ export function Hud({
           onClick={onToggleManual}
         >
           {showManual ? 'Hide Manual' : 'How to Play'}
+        </button>
+        <button
+          type="button"
+          className="console-btn console-btn-ghost"
+          onClick={onRestart}
+          data-testid="hud-restart-btn"
+        >
+          Restart
         </button>
         <button
           type="button"

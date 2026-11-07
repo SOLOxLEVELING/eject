@@ -5,7 +5,7 @@ import { WorldGrid } from '../components/WorldGrid';
 import { createInitialState, gameReducer } from '../game/gameReducer';
 import { getRoomBlueprint } from '../game/levels';
 import { formatBindKey } from '../game/rules';
-import type { Direction } from '../game/types';
+import type { BindKey, Direction } from '../game/types';
 
 function isRangeInput(element: EventTarget | null): boolean {
   return (
@@ -28,6 +28,7 @@ function isTextOrSelectControl(element: EventTarget | null): boolean {
 }
 
 const ARROW_KEYS = new Set(['arrowup', 'arrowdown', 'arrowleft', 'arrowright']);
+const CANDIDATE_BIND_KEYS = new Set<BindKey>(['e', 'f', 'k']);
 
 const KEY_TO_DIRECTION: Record<string, Direction> = {
   w: 'up',
@@ -61,14 +62,12 @@ export function App() {
       const direction = KEY_TO_DIRECTION[key];
 
       if (direction) {
-        // Never move avatar when select/text control has focus
         if (
           isTextOrSelectControl(event.target) ||
           isTextOrSelectControl(document.activeElement)
         ) {
           return;
         }
-        // Range sliders use arrow keys natively; do not move avatar on arrow keys while slider is focused
         if (
           ARROW_KEYS.has(key) &&
           (isRangeInput(event.target) || isRangeInput(document.activeElement))
@@ -95,6 +94,18 @@ export function App() {
         }
         event.preventDefault();
         dispatch({ type: 'INTERACT' });
+        return;
+      }
+
+      if (CANDIDATE_BIND_KEYS.has(key as BindKey)) {
+        if (
+          isTextOrSelectControl(event.target) ||
+          isTextOrSelectControl(document.activeElement)
+        ) {
+          return;
+        }
+        event.preventDefault();
+        dispatch({ type: 'REJECT_UNBOUND_KEY', key: key as BindKey });
       }
     }
 
@@ -222,6 +233,104 @@ export function App() {
     );
   }
 
+  if (state.phase === 'won') {
+    return (
+      <div className="console-root" data-phase="won">
+        <main className="boot-screen won-screen" aria-labelledby="won-title">
+          <div className="boot-top-strip">
+            <span className="boot-tag">FIRMWARE 04.9 // CONTAINMENT OVERRIDE COMPLETE</span>
+            <span className="boot-status boot-status-ok">SYSTEM EJECTED</span>
+          </div>
+
+          <div className="boot-layout">
+            <section className="boot-primary">
+              <p className="boot-kicker">ESCAPE SEQUENCE VERIFIED</p>
+              <h1 id="won-title" className="boot-title">
+                EJECTED
+              </h1>
+              <p className="boot-subtitle">Containment Architecture Overridden</p>
+
+              <p className="boot-narrative won-narrative">
+                All three diagnostic interlocks held stable across the parameter
+                bus. By turning the system&apos;s own calibration settings against
+                its locks, Operator OP-01 has escaped the corrupted shell.
+              </p>
+
+              <div className="boot-cta-row">
+                <button
+                  type="button"
+                  className="console-btn console-btn-primary"
+                  onClick={() => dispatch({ type: 'RESTART_GAME' })}
+                  data-testid="play-again-btn"
+                >
+                  Play Again
+                </button>
+                <button
+                  type="button"
+                  className="console-btn console-btn-secondary"
+                  onClick={() => dispatch({ type: 'RETURN_TO_INTRO' })}
+                  data-testid="return-boot-btn"
+                >
+                  Boot Screen
+                </button>
+              </div>
+            </section>
+
+            <aside
+              className="boot-SideRack"
+              aria-label="Final Verified System Registers"
+            >
+              <div className="rack-header">
+                <span className="panel-index">EXIT TELEMETRY // VERIFIED</span>
+                <h2 className="rack-title">FINAL CALIBRATION SNAPSHOT</h2>
+              </div>
+
+              <dl className="rack-register-list">
+                <div className="rack-register">
+                  <dt>01 // DISPLAY LUMINANCE</dt>
+                  <dd className="status-ok">
+                    {state.settings.brightness}% (GLYPH LINKED)
+                  </dd>
+                </div>
+                <div className="rack-register">
+                  <dt>02 // ACOUSTIC RESONANCE</dt>
+                  <dd className="status-ok">
+                    {state.settings.volume}% [UNMUTED — STABLE]
+                  </dd>
+                </div>
+                <div className="rack-register">
+                  <dt>03 // TERMINAL ACTUATOR</dt>
+                  <dd className="status-ok">
+                    KEY [{bindLabel}] AUTHORIZED
+                  </dd>
+                </div>
+              </dl>
+
+              <div className="rack-diagram" aria-hidden="true">
+                <div className="diagram-row">
+                  <span>[SECTOR 01: DISPLAY]</span>
+                  <span className="status-ok">CLEARED</span>
+                </div>
+                <div className="diagram-row">
+                  <span>[SECTOR 02: AUDIO]</span>
+                  <span className="status-ok">CLEARED</span>
+                </div>
+                <div className="diagram-row">
+                  <span>[SECTOR 03: CONTROLS]</span>
+                  <span className="status-ok">CLEARED</span>
+                </div>
+                <div className="diagram-row">
+                  <span>[SECTOR 04: SYSTEM EXIT]</span>
+                  <span className="status-ok">EJECTED</span>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="console-root" data-phase="playing">
       <div className="console-shell">
@@ -230,6 +339,7 @@ export function App() {
           settings={state.settings}
           showManual={showManual}
           onToggleManual={() => setShowManual((prev) => !prev)}
+          onRestart={() => dispatch({ type: 'RESTART_GAME' })}
           onReturnToIntro={() => dispatch({ type: 'RETURN_TO_INTRO' })}
         />
 

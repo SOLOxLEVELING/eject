@@ -1,18 +1,28 @@
 import { describe, expect, it } from 'vitest';
 import { createInitialState, gameReducer } from './gameReducer';
-import { AUDIO_CHAMBER, DISPLAY_CHAMBER } from './levels';
+import {
+  AUDIO_CHAMBER,
+  CONTROLS_CHAMBER,
+   DEFAULT_SETTINGS,
+  DISPLAY_CHAMBER,
+  FINALE_CHAMBER,
+} from './levels';
 import {
   canActivateGlyph,
   canActivateResonator,
+  canActivateTerminal,
   canMove,
   clampPercentage,
   formatBindKey,
   getAudioStatus,
   getNextPosition,
+  getUnmetFinaleConditions,
   isAdjacent,
   isAudioResonanceStable,
+  isFinalGateReady,
   isGlyphVisible,
   isRoomExitUnlocked,
+  isTerminalKeyAuthorized,
   isWithinBounds,
   sanitizeSettings,
 } from './rules';
@@ -30,6 +40,12 @@ const UNLOCKED_DISPLAY_PROGRESS: Progress = {
   terminalActivated: false,
 };
 
+const ALL_FLAGS_COMPLETE: Progress = {
+  glyphActivated: true,
+  resonatorActivated: true,
+  terminalActivated: true,
+};
+
 const BASE_SETTINGS: Settings = {
   brightness: 20,
   volume: 20,
@@ -37,7 +53,14 @@ const BASE_SETTINGS: Settings = {
   interactKey: 'e',
 };
 
-describe('Stage 1–3 rules', () => {
+const VALID_FINALE_SETTINGS: Settings = {
+  brightness: 70,
+  volume: 65,
+  muted: false,
+  interactKey: 'k',
+};
+
+describe('Stage 1–4 complete game rules', () => {
   it('clamps settings percentages to integer bounds [0, 100] and formats bind key', () => {
     expect(clampPercentage(-12)).toBe(0);
     expect(clampPercentage(20.4)).toBe(20);
@@ -130,7 +153,6 @@ describe('Stage 1–3 rules', () => {
   });
 
   it('evaluates audio status across 54/55/75/76 bounds and enforces mute precedence', () => {
-    // Unmuted boundary checks: 54 fails (TOO LOW), 55 & 75 succeed (STABLE), 76 fails (TOO HIGH)
     expect(getAudioStatus({ volume: 54, muted: false })).toBe('TOO LOW');
     expect(isAudioResonanceStable({ volume: 54, muted: false })).toBe(false);
 
@@ -143,7 +165,6 @@ describe('Stage 1–3 rules', () => {
     expect(getAudioStatus({ volume: 76, muted: false })).toBe('TOO HIGH');
     expect(isAudioResonanceStable({ volume: 76, muted: false })).toBe(false);
 
-    // Muted always takes precedence and fails even inside 55-75
     expect(getAudioStatus({ volume: 54, muted: true })).toBe('MUTED');
     expect(getAudioStatus({ volume: 55, muted: true })).toBe('MUTED');
     expect(getAudioStatus({ volume: 75, muted: true })).toBe('MUTED');
@@ -151,7 +172,6 @@ describe('Stage 1–3 rules', () => {
     expect(isAudioResonanceStable({ volume: 55, muted: true })).toBe(false);
     expect(isAudioResonanceStable({ volume: 75, muted: true })).toBe(false);
 
-    // Adjacency + audio status gating on resonator at (4, 2)
     const resPos = AUDIO_CHAMBER.nodePosition; // (4, 2)
     const adjPos = { x: 4, y: 3 };
 
@@ -181,14 +201,6 @@ describe('Stage 1–3 rules', () => {
     ).toBe(false);
     expect(
       canActivateResonator(
-        { x: 1, y: 3 },
-        resPos,
-        { ...BASE_SETTINGS, volume: 60, muted: false },
-        UNLOCKED_DISPLAY_PROGRESS,
-      ),
-    ).toBe(false);
-    expect(
-      canActivateResonator(
         adjPos,
         resPos,
         { ...BASE_SETTINGS, volume: 55, muted: false },
@@ -205,67 +217,200 @@ describe('Stage 1–3 rules', () => {
     ).toBe(true);
   });
 
-  it('completes Room 1 -> Room 2 -> Room 3 placeholder when resonator is activated at 55-75 unmuted', () => {
-    expect(isRoomExitUnlocked('display', LOCKED_PROGRESS)).toBe(false);
-    expect(isRoomExitUnlocked('display', UNLOCKED_DISPLAY_PROGRESS)).toBe(true);
-    expect(isRoomExitUnlocked('audio', UNLOCKED_DISPLAY_PROGRESS)).toBe(false);
+  it('rejects E and F on Room 3 terminal and requires interactKey K with adjacency', () => {
+    const termPos = CONTROLS_CHAMBER.nodePosition; // (5, 2)
+    const adjPos = { x: 5, y: 3 };
 
-    // 1. Solve Room 1 (DISPLAY)
+    expect(isTerminalKeyAuthorized('e')).toBe(false);
+    expect(isTerminalKeyAuthorized('f')).toBe(false);
+    expect(isTerminalKeyAuthorized('k')).toBe(true);
+
+    expect(
+      canActivateTerminal(
+        adjPos,
+        termPos,
+        { ...BASE_SETTINGS, interactKey: 'e' },
+        LOCKED_PROGRESS,
+      ),
+    ).toBe(false);
+    expect(
+      canActivateTerminal(
+        adjPos,
+        termPos,
+        { ...BASE_SETTINGS, interactKey: 'f' },
+        LOCKED_PROGRESS,
+      ),
+    ).toBe(false);
+    // Distant with K fails
+    expect(
+      canActivateTerminal(
+        { x: 1, y: 3 },
+        termPos,
+        { ...BASE_SETTINGS, interactKey: 'k' },
+        LOCKED_PROGRESS,
+      ),
+    ).toBe(false);
+    // Adjacent with K succeeds
+    expect(
+      canActivateTerminal(
+        adjPos,
+        termPos,
+        { ...BASE_SETTINGS, interactKey: 'k' },
+        LOCKED_PROGRESS,
+      ),
+    ).toBe(true);
+  });
+
+  it('requires all three completed room flags AND valid live settings for the Finale gate', () => {
+    // Valid live settings but missing any room flag -> fails (no skipped flags)
+    expect(
+      isFinalGateReady(VALID_FINALE_SETTINGS, {
+        glyphActivated: false,
+        resonatorActivated: true,
+        terminalActivated: true,
+      }),
+    ).toBe(false);
+    expect(
+      isFinalGateReady(VALID_FINALE_SETTINGS, {
+        glyphActivated: true,
+        resonatorActivated: false,
+        terminalActivated: true,
+      }),
+    ).toBe(false);
+    expect(
+      isFinalGateReady(VALID_FINALE_SETTINGS, {
+        glyphActivated: true,
+        resonatorActivated: true,
+        terminalActivated: false,
+      }),
+    ).toBe(false);
+
+    // All flags complete + valid live settings -> ready!
+    expect(isFinalGateReady(VALID_FINALE_SETTINGS, ALL_FLAGS_COMPLETE)).toBe(true);
+    expect(
+      canMove(
+        FINALE_CHAMBER,
+        FINALE_CHAMBER.exitPosition,
+        ALL_FLAGS_COMPLETE,
+        VALID_FINALE_SETTINGS,
+      ),
+    ).toBe(true);
+
+    // Breaking any single live setting invalidates the final gate and reports unmet prerequisite
+    const lowBrightness = { ...VALID_FINALE_SETTINGS, brightness: 69 };
+    expect(isFinalGateReady(lowBrightness, ALL_FLAGS_COMPLETE)).toBe(false);
+    expect(getUnmetFinaleConditions(lowBrightness, ALL_FLAGS_COMPLETE)).toEqual([
+      'BRIGHTNESS 69% (< 70%)',
+    ]);
+
+    const mutedAudio = { ...VALID_FINALE_SETTINGS, muted: true };
+    expect(isFinalGateReady(mutedAudio, ALL_FLAGS_COMPLETE)).toBe(false);
+    expect(getUnmetFinaleConditions(mutedAudio, ALL_FLAGS_COMPLETE)).toEqual([
+      'AUDIO BUS MUTED',
+    ]);
+
+    const highVolume = { ...VALID_FINALE_SETTINGS, volume: 76 };
+    expect(isFinalGateReady(highVolume, ALL_FLAGS_COMPLETE)).toBe(false);
+    expect(getUnmetFinaleConditions(highVolume, ALL_FLAGS_COMPLETE)).toEqual([
+      'VOLUME TOO HIGH (76% ≠ 55–75%)',
+    ]);
+
+    const wrongKey = { ...VALID_FINALE_SETTINGS, interactKey: 'e' as const };
+    expect(isFinalGateReady(wrongKey, ALL_FLAGS_COMPLETE)).toBe(false);
+    expect(getUnmetFinaleConditions(wrongKey, ALL_FLAGS_COMPLETE)).toEqual([
+      'KEY [E] REVOKED (NEEDS [K])',
+    ]);
+  });
+
+  it('completes full start-to-win flow across all 4 rooms and resets all state on restart', () => {
     let state = gameReducer(createInitialState(), { type: 'START_GAME' });
+
+    // --- ROOM 1: DISPLAY ---
     state = gameReducer(state, { type: 'MOVE', direction: 'right' }); // (3,3)
     state = gameReducer(state, { type: 'MOVE', direction: 'right' }); // (4,3)
     state = gameReducer(state, { type: 'MOVE', direction: 'right' }); // (5,3)
     state = gameReducer(state, { type: 'MOVE', direction: 'up' }); // (5,2)
     state = gameReducer(state, { type: 'MOVE', direction: 'up' }); // (5,1)
-    state = gameReducer(state, { type: 'SET_BRIGHTNESS', value: 70 });
+    state = gameReducer(state, { type: 'SET_BRIGHTNESS', value: 75 });
     state = gameReducer(state, { type: 'INTERACT' });
     expect(state.progress.glyphActivated).toBe(true);
 
-    // Walk to Room 1 exit (8,3) -> enters Room 2 ('audio') at (1,3)
     state = gameReducer(state, { type: 'MOVE', direction: 'down' }); // (5,2)
     state = gameReducer(state, { type: 'MOVE', direction: 'right' }); // (6,2)
     state = gameReducer(state, { type: 'MOVE', direction: 'right' }); // (7,2)
     state = gameReducer(state, { type: 'MOVE', direction: 'down' }); // (7,3)
-    state = gameReducer(state, { type: 'MOVE', direction: 'right' }); // (8,3)
+    state = gameReducer(state, { type: 'MOVE', direction: 'right' }); // (8,3) -> Room 2
     expect(state.room).toBe('audio');
-    expect(state.position).toEqual({ x: 1, y: 3 });
 
-    // 2. Walk in Room 2 from (1,3) -> (4,3) adjacent to resonator at (4,2)
+    // --- ROOM 2: AUDIO ---
     state = gameReducer(state, { type: 'MOVE', direction: 'right' }); // (2,3)
     state = gameReducer(state, { type: 'MOVE', direction: 'right' }); // (3,3)
     state = gameReducer(state, { type: 'MOVE', direction: 'right' }); // (4,3)
-    expect(state.position).toEqual({ x: 4, y: 3 });
-
-    // Volume 55 while muted=true -> fails
-    state = gameReducer(state, { type: 'SET_VOLUME', value: 55 });
-    state = gameReducer(state, { type: 'INTERACT' });
-    expect(state.progress.resonatorActivated).toBe(false);
-
-    // Unmute at volume 54 -> fails
     state = gameReducer(state, { type: 'SET_MUTED', value: false });
-    state = gameReducer(state, { type: 'SET_VOLUME', value: 54 });
-    state = gameReducer(state, { type: 'INTERACT' });
-    expect(state.progress.resonatorActivated).toBe(false);
-
-    // Unmuted at volume 76 -> fails
-    state = gameReducer(state, { type: 'SET_VOLUME', value: 76 });
-    state = gameReducer(state, { type: 'INTERACT' });
-    expect(state.progress.resonatorActivated).toBe(false);
-
-    // Unmuted at volume 75 -> succeeds!
-    state = gameReducer(state, { type: 'SET_VOLUME', value: 75 });
+    state = gameReducer(state, { type: 'SET_VOLUME', value: 65 });
     state = gameReducer(state, { type: 'INTERACT' });
     expect(state.progress.resonatorActivated).toBe(true);
-    expect(isRoomExitUnlocked('audio', state.progress)).toBe(true);
 
-    // Walk East from (4,3) -> (5,3) -> (6,3) -> (7,3) -> (8,3) exit into Room 3 placeholder ('controls')
     state = gameReducer(state, { type: 'MOVE', direction: 'right' }); // (5,3)
     state = gameReducer(state, { type: 'MOVE', direction: 'right' }); // (6,3)
     state = gameReducer(state, { type: 'MOVE', direction: 'right' }); // (7,3)
-    state = gameReducer(state, { type: 'MOVE', direction: 'right' }); // (8,3)
+    state = gameReducer(state, { type: 'MOVE', direction: 'right' }); // (8,3) -> Room 3
     expect(state.room).toBe('controls');
-    expect(state.settings.brightness).toBe(70);
-    expect(state.settings.volume).toBe(75);
-    expect(state.settings.muted).toBe(false);
+    expect(state.position).toEqual({ x: 1, y: 3 });
+
+    // --- ROOM 3: CONTROLS ---
+    // Walk along y=3 to (5,3) adjacent to terminal at (5,2)
+    state = gameReducer(state, { type: 'MOVE', direction: 'right' }); // (2,3)
+    state = gameReducer(state, { type: 'MOVE', direction: 'right' }); // (3,3)
+    state = gameReducer(state, { type: 'MOVE', direction: 'right' }); // (4,3)
+    state = gameReducer(state, { type: 'MOVE', direction: 'right' }); // (5,3)
+    expect(state.position).toEqual({ x: 5, y: 3 });
+
+    // Interacting with default E is rejected
+    state = gameReducer(state, { type: 'INTERACT' });
+    expect(state.progress.terminalActivated).toBe(false);
+    expect(isRoomExitUnlocked('controls', state.progress)).toBe(false);
+
+    // Pressing unbound K before rebinding is rejected
+    state = gameReducer(state, { type: 'REJECT_UNBOUND_KEY', key: 'k' });
+    expect(state.progress.terminalActivated).toBe(false);
+
+    // Rebind Interact to K and activate terminal
+    state = gameReducer(state, { type: 'SET_INTERACT_KEY', value: 'k' });
+    state = gameReducer(state, { type: 'INTERACT' });
+    expect(state.progress.terminalActivated).toBe(true);
+
+    // Walk East to (8,3) -> enters Finale ('finale')
+    state = gameReducer(state, { type: 'MOVE', direction: 'right' }); // (6,3)
+    state = gameReducer(state, { type: 'MOVE', direction: 'right' }); // (7,3)
+    state = gameReducer(state, { type: 'MOVE', direction: 'right' }); // (8,3) -> Finale
+    expect(state.room).toBe('finale');
+    expect(state.position).toEqual({ x: 1, y: 3 });
+
+    // --- ROOM 4: FINALE ---
+    // Walk to (7,3) right next to final exit at (8,3)
+    for (let i = 0; i < 6; i++) {
+      state = gameReducer(state, { type: 'MOVE', direction: 'right' });
+    }
+    expect(state.position).toEqual({ x: 7, y: 3 });
+
+    // Break a live setting (drop brightness to 50%) -> stepping onto exit (8,3) is blocked!
+    state = gameReducer(state, { type: 'SET_BRIGHTNESS', value: 50 });
+    state = gameReducer(state, { type: 'MOVE', direction: 'right' });
+    expect(state.phase).toBe('playing');
+    expect(state.position).toEqual({ x: 7, y: 3 });
+
+    // Restore brightness to 75% -> stepping onto exit (8,3) wins the game!
+    state = gameReducer(state, { type: 'SET_BRIGHTNESS', value: 75 });
+    state = gameReducer(state, { type: 'MOVE', direction: 'right' });
+    expect(state.phase).toBe('won');
+
+    // --- FULL RESTART ---
+    state = gameReducer(state, { type: 'RESTART_GAME' });
+    expect(state.phase).toBe('playing');
+    expect(state.room).toBe('display');
+    expect(state.position).toEqual(DISPLAY_CHAMBER.spawn);
+    expect(state.settings).toEqual(DEFAULT_SETTINGS);
+    expect(state.progress).toEqual(LOCKED_PROGRESS);
   });
 });

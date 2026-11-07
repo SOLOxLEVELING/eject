@@ -11,7 +11,8 @@ export const DISPLAY_CHAMBER: RoomBlueprint = {
   id: 'display',
   code: 'SECTOR 01 // DISPLAY',
   title: 'OPTICAL CALIBRATION BAY',
-  subtitle: 'Chamber shrouded in low-gain fog. Raise Brightness ≥ 70% to reveal the optical glyph.',
+  subtitle:
+    'Chamber shrouded in low-gain fog. Raise Brightness ≥ 70% to reveal the optical glyph.',
   width: 9,
   height: 7,
   spawn: { x: 2, y: 3 },
@@ -50,11 +51,12 @@ export const AUDIO_CHAMBER: RoomBlueprint = {
   ],
 };
 
-export const CONTROLS_CHAMBER_PLACEHOLDER: RoomBlueprint = {
+export const CONTROLS_CHAMBER: RoomBlueprint = {
   id: 'controls',
   code: 'SECTOR 03 // CONTROLS',
   title: 'KEYBIND AUTHORIZATION BAY',
-  subtitle: 'Sector 03 placeholder active. Terminal keybind override awaits Stage 4.',
+  subtitle:
+    'Console notice: E: REVOKED / K: AUTHORIZED. Rebind Interact to K and activate the terminal.',
   width: 9,
   height: 7,
   spawn: { x: 1, y: 3 },
@@ -64,28 +66,46 @@ export const CONTROLS_CHAMBER_PLACEHOLDER: RoomBlueprint = {
     ['wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall'],
     ['wall', 'floor', 'floor', 'floor', 'wall', 'floor', 'floor', 'floor', 'wall'],
     ['wall', 'floor', 'wall', 'floor', 'floor', 'node', 'wall', 'floor', 'wall'],
-    ['wall', 'floor', 'floor', 'floor', 'wall', 'floor', 'floor', 'floor', 'exit'],
+    ['wall', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'exit'],
     ['wall', 'floor', 'wall', 'floor', 'floor', 'floor', 'wall', 'floor', 'wall'],
     ['wall', 'floor', 'floor', 'floor', 'wall', 'floor', 'floor', 'floor', 'wall'],
     ['wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall'],
   ],
 };
 
+export const FINALE_CHAMBER: RoomBlueprint = {
+  id: 'finale',
+  code: 'SECTOR 04 // SYSTEM EXIT',
+  title: 'CONTAINMENT EJECT GATE',
+  subtitle:
+    'Final interlock requires all three sector flags plus live Brightness ≥ 70%, Volume 55–75% unmuted, and Key K.',
+  width: 9,
+  height: 7,
+  spawn: { x: 1, y: 3 },
+  nodePosition: { x: 4, y: 2 },
+  exitPosition: { x: 8, y: 3 },
+  tiles: [
+    ['wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall'],
+    ['wall', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'wall'],
+    ['wall', 'floor', 'wall', 'floor', 'node', 'floor', 'wall', 'floor', 'wall'],
+    ['wall', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'exit'],
+    ['wall', 'floor', 'wall', 'floor', 'floor', 'floor', 'wall', 'floor', 'wall'],
+    ['wall', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'wall'],
+    ['wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall'],
+  ],
+};
+
 export const STAGE_ONE_CHAMBER = DISPLAY_CHAMBER;
 export const AUDIO_CHAMBER_PLACEHOLDER = AUDIO_CHAMBER;
+export const CONTROLS_CHAMBER_PLACEHOLDER = CONTROLS_CHAMBER;
 
-export const ROOMS: Record<'display' | 'audio' | 'controls', RoomBlueprint> = {
+export const ROOMS: Record<RoomId, RoomBlueprint> = {
   display: DISPLAY_CHAMBER,
   audio: AUDIO_CHAMBER,
-  controls: CONTROLS_CHAMBER_PLACEHOLDER,
+  controls: CONTROLS_CHAMBER,
+  finale: FINALE_CHAMBER,
 };
 
 export function getRoomBlueprint(roomId: RoomId): RoomBlueprint {
-  if (roomId === 'audio') {
-    return AUDIO_CHAMBER;
-  }
-  if (roomId === 'controls') {
-    return CONTROLS_CHAMBER_PLACEHOLDER;
-  }
-  return DISPLAY_CHAMBER;
+  return ROOMS[roomId];
 }

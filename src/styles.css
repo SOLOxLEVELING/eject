@@ -108,6 +108,16 @@ select:focus-visible {
   background-color: var(--accent-orange-dim);
 }
 
+.boot-status-ok {
+  color: var(--accent-sage);
+  border-color: var(--accent-sage);
+  background-color: var(--accent-sage-dim);
+}
+
+.won-narrative {
+  border-left-color: var(--accent-sage);
+}
+
 .boot-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.85fr) minmax(300px, 1fr);
@@ -477,6 +487,65 @@ select:focus-visible {
   gap: 6px;
 }
 
+.finale-diagnostics-bar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.finale-diag-card {
+  padding: 5px 8px;
+  border: 1px solid var(--line-subtle);
+  background-color: var(--bg-panel);
+  font-family: var(--font-mono);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.finale-diag-card.diag-ready {
+  border-color: rgba(140, 169, 155, 0.55);
+  background-color: #111816;
+}
+
+.finale-diag-card.diag-fault {
+  border-color: rgba(233, 124, 85, 0.55);
+  background-color: #191311;
+}
+
+.finale-diag-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.63rem;
+}
+
+.finale-diag-label {
+  color: var(--ink-muted);
+}
+
+.finale-diag-state {
+  font-weight: 700;
+}
+
+.diag-ready .finale-diag-state,
+.diag-ready .finale-diag-detail {
+  color: var(--accent-sage);
+}
+
+.diag-fault .finale-diag-state,
+.diag-fault .finale-diag-detail {
+  color: var(--accent-orange);
+}
+
+.finale-diag-detail {
+  font-size: 0.68rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .coord-ruler-top {
   display: grid;
   grid-template-columns: 28px repeat(9, minmax(0, 1fr));
@@ -523,6 +592,10 @@ select:focus-visible {
   padding: 6px;
   background-color: #090b0c;
   border: 1px solid var(--line-strong);
+}
+
+.viewport-panel[data-room='finale'] .world-grid {
+  max-height: 308px;
 }
 
 .world-luminance-veil {
@@ -1287,6 +1360,10 @@ select:focus-visible {
 
   .viewport-stage-frame {
     padding: 8px;
+  }
+
+  .finale-diagnostics-bar {
+    grid-template-columns: 1fr;
   }
 
   .viewport-footer {

@@ -1,11 +1,15 @@
 import {
   canActivateGlyph,
   canActivateResonator,
+  canActivateTerminal,
   formatBindKey,
   getAudioStatus,
+  getFinaleDiagnostics,
+  getUnmetFinaleConditions,
   isAdjacent,
   isGlyphVisible,
   isRoomExitUnlocked,
+  isTerminalKeyAuthorized,
   isTileLocallyLit,
 } from '../game/rules';
 import type {
@@ -34,6 +38,8 @@ function getTileLabel(
   glyphActivated: boolean,
   audioStatus: AudioStatus,
   resonatorActivated: boolean,
+  keyAuthorized: boolean,
+  terminalActivated: boolean,
   exitUnlocked: boolean,
   x: number,
   y: number,
@@ -59,7 +65,17 @@ function getTileLabel(
         }
         return `Acoustic resonator [${audioStatus}] (${x}, ${y})`;
       }
-      return `Keybind terminal placeholder (${x}, ${y})`;
+      if (chamberId === 'controls') {
+        if (terminalActivated) {
+          return `Authorized keybind terminal (${x}, ${y})`;
+        }
+        return keyAuthorized
+          ? `Keybind terminal [K: AUTHORIZED] (${x}, ${y})`
+          : `Keybind terminal [E: REVOKED / K: AUTHORIZED] (${x}, ${y})`;
+      }
+      return exitUnlocked
+        ? `System interlock core [VERIFIED] (${x}, ${y})`
+        : `System interlock core [FAULT] (${x}, ${y})`;
     case 'exit':
       return exitUnlocked
         ? `Unlocked sector exit (${x}, ${y})`
@@ -88,21 +104,35 @@ export function WorldGrid({
   const audioStatus = getAudioStatus(settings);
   const audioStable = audioStatus === 'STABLE';
   const resonatorActivated = progress.resonatorActivated;
-  const exitUnlocked = isRoomExitUnlocked(chamber.id, progress);
+  const keyAuthorized = isTerminalKeyAuthorized(settings.interactKey);
+  const terminalActivated = progress.terminalActivated;
+
+  const exitUnlocked = isRoomExitUnlocked(chamber.id, progress, settings);
   const adjacentToNode = isAdjacent(position, chamber.nodePosition);
+
+  const finaleDiagnostics = getFinaleDiagnostics(settings, progress);
+  const unmetFinale = getUnmetFinaleConditions(settings, progress);
+  const verifiedCount = finaleDiagnostics.filter((d) => d.ready).length;
 
   const canInteractNow =
     (chamber.id === 'display' &&
       canActivateGlyph(position, chamber.nodePosition, settings, progress)) ||
     (chamber.id === 'audio' &&
-      canActivateResonator(position, chamber.nodePosition, settings, progress));
+      canActivateResonator(
+        position,
+        chamber.nodePosition,
+        settings,
+        progress,
+      )) ||
+    (chamber.id === 'controls' &&
+      canActivateTerminal(position, chamber.nodePosition, settings, progress));
 
   // World-only darkness veil tied to in-game brightness setting;
   // modifies only the chamber grid, keeping walls and UI controls readable.
   const veilOpacity =
     chamber.id === 'display'
       ? Number(
-          ((Math.max(0, 75 - settings.brightness) / 75) * 0.48).toFixed(2),
+          (((Math.max(0, 75 - settings.brightness) / 75) * 0.48).toFixed(2)),
         )
       : Number((((100 - settings.brightness) / 100) * 0.22).toFixed(2));
 
@@ -139,9 +169,29 @@ export function WorldGrid({
     } else {
       contextualHint = `CLUE: STABLE BAND 55–75% UNMUTED [NOW: ${audioStatus}] // TUNE AUDIO & APPROACH RESONATOR (04, 02)`;
     }
+  } else if (chamber.id === 'controls') {
+    if (canInteractNow) {
+      contextualHint =
+        'ADJACENT TO TERMINAL [K: AUTHORIZED] // PRESS [K] OR CLICK INTERACT TO UNLOCK EXIT';
+    } else if (terminalActivated) {
+      contextualHint =
+        'TERMINAL AUTHORIZED // WALK ONTO THE OPEN EXIT GATE AT (X:08, Y:03)';
+    } else if (adjacentToNode) {
+      contextualHint = `TERMINAL REJECTS [${bindLabel}] (E: REVOKED / K: AUTHORIZED) // REBIND INTERACT TO [K] IN SETTINGS`;
+    } else if (keyAuthorized) {
+      contextualHint =
+        'INTERACT BOUND TO [K] (AUTHORIZED) // STAND ADJACENT TO TERMINAL AT (X:05, Y:02) AND PRESS [K]';
+    } else {
+      contextualHint =
+        'CONSOLE NOTICE: E: REVOKED / K: AUTHORIZED // REBIND INTERACT KEY TO [K] AND APPROACH TERMINAL (05, 02)';
+    }
   } else {
-    contextualHint =
-      'SECTOR 03 PLACEHOLDER ACTIVE // STAGE 3 OBJECTIVE COMPLETE (KEYBIND PUZZLE IN STAGE 4)';
+    if (exitUnlocked) {
+      contextualHint =
+        'ALL THREE INTERLOCKS VERIFIED // STEP ONTO THE OPEN ESCAPE GATE AT (X:08, Y:03) TO EJECT';
+    } else {
+      contextualHint = `FINAL GATE LOCKED // UNMET: ${unmetFinale.join(' · ')}`;
+    }
   }
 
   return (
@@ -171,6 +221,20 @@ export function WorldGrid({
             >
               RESONANCE: {audioStatus} (55–75%)
             </span>
+          ) : chamber.id === 'controls' ? (
+            <span
+              className={`tag-pill ${keyAuthorized ? 'tag-ok' : 'tag-warn'}`}
+              data-testid="viewport-controls-tag"
+            >
+              E: REVOKED / K: AUTHORIZED
+            </span>
+          ) : chamber.id === 'finale' ? (
+            <span
+              className={`tag-pill ${exitUnlocked ? 'tag-ok' : 'tag-warn'}`}
+              data-testid="viewport-finale-tag"
+            >
+              INTERLOCKS: {verifiedCount}/3 VERIFIED
+            </span>
           ) : (
             <span className="tag-pill" data-testid="viewport-luminance-tag">
               LUM FIELD: {String(settings.brightness).padStart(3, '0')}%
@@ -180,6 +244,33 @@ export function WorldGrid({
       </div>
 
       <div className="viewport-stage-frame">
+        {chamber.id === 'finale' && (
+          <div
+            className="finale-diagnostics-bar"
+            data-testid="finale-diagnostics"
+            aria-label="Finale Three-Part System Diagnostics"
+          >
+            {finaleDiagnostics.map((item) => (
+              <div
+                key={item.id}
+                className={`finale-diag-card ${
+                  item.ready ? 'diag-ready' : 'diag-fault'
+                }`}
+                data-testid={`finale-check-${item.id}`}
+                data-ready={item.ready}
+              >
+                <div className="finale-diag-top">
+                  <span className="finale-diag-label">{item.label}</span>
+                  <span className="finale-diag-state">
+                    {item.ready ? 'PASS' : 'FAULT'}
+                  </span>
+                </div>
+                <span className="finale-diag-detail">{item.detail}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="coord-ruler-top" aria-hidden="true">
           <span className="coord-corner">Y\X</span>
           {columns.map((col) => (
@@ -217,17 +308,26 @@ export function WorldGrid({
                 const isDisplayNode =
                   chamber.id === 'display' && tile === 'node';
                 const isAudioNode = chamber.id === 'audio' && tile === 'node';
+                const isControlsNode =
+                  chamber.id === 'controls' && tile === 'node';
+                const isFinaleNode = chamber.id === 'finale' && tile === 'node';
 
                 const isNodeObscured =
                   isDisplayNode && !glyphVisible && !glyphActivated;
                 const isNodeRevealed =
                   (isDisplayNode && glyphVisible && !glyphActivated) ||
-                  (isAudioNode && audioStable && !resonatorActivated);
+                  (isAudioNode && audioStable && !resonatorActivated) ||
+                  (isControlsNode && keyAuthorized && !terminalActivated) ||
+                  (isFinaleNode && exitUnlocked);
                 const isNodeUnstable =
-                  isAudioNode && !audioStable && !resonatorActivated;
+                  (isAudioNode && !audioStable && !resonatorActivated) ||
+                  (isControlsNode && !keyAuthorized && !terminalActivated) ||
+                  (isFinaleNode && !exitUnlocked);
                 const isNodeActivated =
                   (isDisplayNode && glyphActivated) ||
-                  (isAudioNode && resonatorActivated);
+                  (isAudioNode && resonatorActivated) ||
+                  (isControlsNode && terminalActivated) ||
+                  (isFinaleNode && exitUnlocked);
 
                 const tileClasses = [
                   'world-tile',
@@ -240,7 +340,8 @@ export function WorldGrid({
                   isNodeRevealed ? 'tile-node-revealed' : '',
                   isNodeUnstable ? 'tile-node-unstable' : '',
                   isNodeActivated ? 'tile-node-activated' : '',
-                  canInteractNow && (isDisplayNode || isAudioNode)
+                  canInteractNow &&
+                  (isDisplayNode || isAudioNode || isControlsNode)
                     ? 'tile-node-ready'
                     : '',
                   tile === 'exit'
@@ -264,6 +365,8 @@ export function WorldGrid({
                       glyphActivated,
                       audioStatus,
                       resonatorActivated,
+                      keyAuthorized,
+                      terminalActivated,
                       exitUnlocked,
                       x,
                       y,
@@ -287,6 +390,15 @@ export function WorldGrid({
                           : audioStable
                             ? 'stable'
                             : 'unstable'
+                        : undefined
+                    }
+                    data-terminal-state={
+                      isControlsNode
+                        ? terminalActivated
+                          ? 'activated'
+                          : keyAuthorized
+                            ? 'authorized'
+                            : 'revoked'
                         : undefined
                     }
                     data-exit-state={
@@ -369,11 +481,47 @@ export function WorldGrid({
 
                     {tile === 'node' && chamber.id === 'controls' && (
                       <div
-                        className="tile-entity tile-entity-node"
+                        className={`tile-entity ${
+                          terminalActivated || keyAuthorized
+                            ? 'tile-entity-node'
+                            : 'tile-entity-exit'
+                        }`}
                         aria-hidden="true"
                       >
-                        <span className="entity-glyph-diamond" />
-                        <span className="entity-code">TERM</span>
+                        <span
+                          className={`entity-glyph-diamond ${
+                            terminalActivated
+                              ? 'diamond-active'
+                              : !keyAuthorized
+                                ? 'diamond-unstable'
+                                : ''
+                          }`}
+                        />
+                        <span className="entity-code">
+                          {terminalActivated
+                            ? 'LINKED'
+                            : keyAuthorized
+                              ? 'AUTH [K]'
+                              : 'REVOKED'}
+                        </span>
+                      </div>
+                    )}
+
+                    {tile === 'node' && chamber.id === 'finale' && (
+                      <div
+                        className={`tile-entity ${
+                          exitUnlocked ? 'tile-entity-node' : 'tile-entity-exit'
+                        }`}
+                        aria-hidden="true"
+                      >
+                        <span
+                          className={`entity-glyph-diamond ${
+                            exitUnlocked ? 'diamond-active' : 'diamond-unstable'
+                          }`}
+                        />
+                        <span className="entity-code">
+                          {exitUnlocked ? 'VERIFIED' : `${verifiedCount}/3 OK`}
+                        </span>
                       </div>
                     )}
 
@@ -421,7 +569,7 @@ export function WorldGrid({
           </div>
         </div>
 
-        <div className="viewport-context-bar" data-ready={canInteractNow}>
+        <div className="viewport-context-bar" data-ready={canInteractNow || (chamber.id === 'finale' && exitUnlocked)}>
           <span className="context-indicator" aria-hidden="true" />
           <span className="context-text" data-testid="viewport-context-hint">
             {contextualHint}
@@ -436,7 +584,9 @@ export function WorldGrid({
           <span className="legend-item">
             <i
               className={`legend-swatch ${
-                chamber.id === 'audio' && !resonatorActivated && !audioStable
+                (chamber.id === 'audio' && !resonatorActivated && !audioStable) ||
+                (chamber.id === 'controls' && !terminalActivated && !keyAuthorized) ||
+                (chamber.id === 'finale' && !exitUnlocked)
                   ? 'swatch-exit'
                   : 'swatch-node'
               }`}
@@ -452,7 +602,13 @@ export function WorldGrid({
                 ? resonatorActivated
                   ? 'Resonator [Linked]'
                   : `Resonator [${audioStatus}]`
-                : 'Keybind Terminal [Stage 4]'}
+                : chamber.id === 'controls'
+                  ? terminalActivated
+                    ? 'Terminal [Linked]'
+                    : keyAuthorized
+                      ? 'Terminal [K: Authorized]'
+                      : 'Terminal [E: Revoked / K: Auth]'
+                  : `Interlock Core [${verifiedCount}/3 Verified]`}
           </span>
           <span className="legend-item">
             <i

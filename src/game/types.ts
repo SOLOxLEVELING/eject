@@ -41,6 +41,13 @@ export type RoomBlueprint = {
   tiles: readonly (readonly TileKind[])[];
 };
 
+export type FinaleCheckItem = {
+  id: 'display' | 'audio' | 'controls';
+  label: string;
+  ready: boolean;
+  detail: string;
+};
+
 export type GameState = {
   phase: Phase;
   room: RoomId;
@@ -52,9 +59,11 @@ export type GameState = {
 
 export type GameAction =
   | { type: 'START_GAME' }
+  | { type: 'RESTART_GAME' }
   | { type: 'RETURN_TO_INTRO' }
   | { type: 'MOVE'; direction: Direction }
   | { type: 'INTERACT' }
+  | { type: 'REJECT_UNBOUND_KEY'; key: BindKey }
   | { type: 'SET_BRIGHTNESS'; value: number }
   | { type: 'SET_VOLUME'; value: number }
   | { type: 'SET_MUTED'; value: boolean }
