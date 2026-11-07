@@ -107,7 +107,7 @@ export function isWithinBounds(
 export function getTileAt(
   room: RoomBlueprint,
   target: Coordinates,
-  settings?: Pick<Settings, 'windowMode'>,
+  settings?: Pick<Settings, 'windowMode'> & Partial<Pick<Settings, 'brightness'>>,
 ): TileKind | null {
   if (!isWithinBounds(room, target)) {
     return null;
@@ -115,6 +115,9 @@ export function getTileAt(
   const tile = room.tiles[target.y]?.[target.x] ?? null;
   if (tile === 'frame') {
     return settings?.windowMode === 'borderless' ? 'floor' : 'wall';
+  }
+  if (tile === 'watcher') {
+    return isGlyphVisible(settings?.brightness ?? 0) ? 'wall' : 'floor';
   }
   return tile;
 }

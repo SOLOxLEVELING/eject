@@ -404,9 +404,11 @@ describe('Stage 1–4 complete game rules', () => {
     for (const direction of ['up', 'up'] as const) state = gameReducer(state, { type: 'MOVE', direction });
     state = gameReducer(state, { type: 'INTERACT' });
     expect(state.progress.crossTalkStage).toBe('routed');
+    state = gameReducer(state, { type: 'SET_BRIGHTNESS', value: 20 });
     for (const direction of ['down', 'down', 'right', 'right', 'right', 'right', 'down', 'down'] as const) state = gameReducer(state, { type: 'MOVE', direction });
     state = gameReducer(state, { type: 'INTERACT' });
     expect(state.progress.crossTalkStage).toBe('powered');
+    state = gameReducer(state, { type: 'SET_BRIGHTNESS', value: 70 });
     for (const direction of ['up', 'up', 'up', 'up', 'right', 'right', 'down', 'down', 'right'] as const) state = gameReducer(state, { type: 'MOVE', direction });
     expect(state.room).toBe('finale');
     expect(state.position).toEqual({ x: 1, y: 3 });

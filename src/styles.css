@@ -218,6 +218,21 @@ kbd { font-family: var(--font-mono); font-size: 0.8em; }
 .tile-node-activated .relay-coil { stroke: var(--accent-sage); }
 [data-cross-relay-state='no-carrier'] .resonator-wave { opacity: 0; }
 @keyframes carrier-route { from { stroke-dashoffset: 60; } to { stroke-dashoffset: 0; } }
+/* The eye and retracting beam share the passage's resolved collision state. */
+.tile-watcher, .tile-watcher.tile-wall[data-wall-face='true'] { z-index: 5; background: #1b2225; border: 0; box-shadow: inset 5px 0 #465054, inset -5px 0 #465054; }
+.tile-watcher::before, .tile-watcher::after { display: none; }
+.watcher-mechanism { position: absolute; inset: 0; pointer-events: none; }
+.watcher-eye { position: absolute; top: -30%; left: 15%; width: 70%; height: 60%; overflow: visible; }
+.watcher-mount { fill: #303b3e; stroke: #a4b2a8; stroke-width: 2; }
+.watcher-lid { fill: #130d0f; stroke: #ef655f; stroke-width: 3; }
+.watcher-pupil { fill: #ef655f; }
+.watcher-shut { stroke: #a4b2a8; stroke-width: 4; opacity: 0; }
+.watcher-beam { position: absolute; top: 25%; bottom: 10%; left: calc(50% - 3px); width: 6px; background: #ff5959; box-shadow: 0 0 10px #ff5959, -14px 0 0 #ef655f25, 14px 0 0 #ef655f25; transform-origin: top; transition: transform 180ms ease-out; }
+.watcher-status { position: absolute; top: -52%; left: 50%; transform: translateX(-50%); padding: 3px 6px; background: #101618; color: #ff9590; font: 0.75rem var(--font-mono); white-space: nowrap; }
+[data-watcher-state='blind'] .watcher-beam { transform: scaleY(0); }
+[data-watcher-state='blind'] .watcher-lid, [data-watcher-state='blind'] .watcher-pupil { opacity: 0; }
+[data-watcher-state='blind'] .watcher-shut { opacity: 1; }
+[data-watcher-state='blind'] .watcher-status { color: var(--ink-paper); }
 /* The aperture edge follows the existing collision choke; the camera never moves. */
 .world-grid[data-window-mode] { --frame-travel-time: 280ms; }
 .frame-aperture { position: absolute; z-index: 6; inset: 0; overflow: hidden; pointer-events: none; }
@@ -516,6 +531,7 @@ kbd { font-family: var(--font-mono); font-size: 0.8em; }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .watcher-beam { transition: none; }
   .opening-world, .opening-world .world-grid, .door-leaf, .frame-beam, .frame-shutter { transition: none; }
   .world-grid, .tile-entity-player .operator, .room-machine, .optical-signal, .glyph-discovery, .resonator-ring, .tile-exit .entity-code, .cross-cable path { animation: none !important; }
   .opening-world .world-grid { transform: none; }

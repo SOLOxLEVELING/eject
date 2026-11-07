@@ -13,7 +13,7 @@ describe('context dialogue and ending', () => {
         expect(line).not.toMatch(/\d|%/);
       }
     }
-    expect(ROOM_STORY.crosstalk.hint).toBe('Reveal the receiver first. Then tune the signal.');
+    expect(ROOM_STORY.crosstalk.hint).toBe('Reveal the receiver. Cross unseen in the dark. Then tune the relay.');
     expect(ROOM_STORY.finale.hint).toBe('The gate is reading my settings right now.');
   });
 

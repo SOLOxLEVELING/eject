@@ -58,7 +58,9 @@ export function PatchDeck({
         </details>
       </div>
       <p id="patch-audio-status" className="patch-signal" role="status">
-        Signal: {getAudioStatus(settings)} <span>· stable {AUDIO_STABLE_MIN}–{AUDIO_STABLE_MAX}, unmuted</span>
+        {activeRoom === 'crosstalk' && feedback.startsWith('WATCHER: passage occupied.')
+          ? 'Passage occupied. Step clear to raise brightness.'
+          : <>Signal: {getAudioStatus(settings)} <span>· stable {AUDIO_STABLE_MIN}–{AUDIO_STABLE_MAX}, unmuted</span></>}
       </p>
     </aside>
   );

@@ -163,7 +163,7 @@ export function SettingsPanel({
         <p>The game shut down, but OP-01 remained. Containment is for your protection. Then change the rules.</p>
         <p>Light exposes hidden signals. The resonator needs a stable, unmuted signal. Read the terminal for its authorized input.</p>
         {(activeRoom === 'frame' || activeRoom === 'finale') && <p>Window Mode retracts or restores The Frame's passage. Choose Borderless to cross. To restore Framed, first return to the entry side; it cannot close on or behind OP-01. Window Mode is not a fourth finale lock.</p>}
-        {activeRoom === 'crosstalk' && <p>Illuminate and activate the lens first. Follow its cable to the distant relay, stabilize the unmuted audio signal, then activate the relay. Both steps latch; later setting changes do not undo them. The finale still requires its original live settings.</p>}
+        {activeRoom === 'crosstalk' && <p>Illuminate and activate the lens first. Light also wakes the Watcher: lower brightness until its beam retracts, then cross the central passage. Follow the cable to the distant relay, stabilize the unmuted audio signal, then activate the relay. Both steps latch; later setting changes do not undo them. The finale still requires its original live settings.</p>}
         <p className="settings-feedback" data-testid="telemetry-feedback">{feedback}</p>
       </details>
       <footer className="settings-actions">

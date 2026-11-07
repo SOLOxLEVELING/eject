@@ -100,6 +100,9 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const targetTile = getTileAt(room, target, state.settings);
 
       if (!canMove(room, target, state.progress, state.settings)) {
+        if (room.tiles[target.y]?.[target.x] === 'watcher') {
+          return { ...state, feedback: 'WATCHER: passage locked in the light. Its eye cannot see in the dark.' };
+        }
         if (state.room === 'crosstalk' && (targetTile === 'node' || targetTile === 'exit')) {
           return {
             ...state,
@@ -379,7 +382,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           return {
             ...state, progress: { ...state.progress, crossTalkStage },
             feedback: crossTalkStage === 'routed'
-              ? 'Optical carrier latched. The cable leads to the acoustic relay.'
+              ? 'Optical carrier latched. The Watcher sees in the light; carry the signal through the dark.'
               : 'Acoustic relay latched. The exit is powered.',
           };
         }
@@ -578,6 +581,10 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'SET_BRIGHTNESS': {
       const brightness = clampPercentage(action.value);
+      if (state.room === 'crosstalk' && isGlyphVisible(brightness) &&
+        ROOMS.crosstalk.tiles[state.position.y]?.[state.position.x] === 'watcher') {
+        return { ...state, feedback: 'WATCHER: passage occupied. Step clear before raising the light. Brightness unchanged.' };
+      }
       const nextSettings = {
         ...state.settings,
         brightness,
@@ -590,6 +597,10 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         } else {
           feedback = `LUMINANCE ${String(brightness).padStart(3, '0')}% // BELOW 70% THRESHOLD — OPTICAL GLYPH REMAINS OBSCURED.`;
         }
+      } else if (state.room === 'crosstalk') {
+        feedback = isGlyphVisible(brightness)
+          ? 'WATCHER: eye active. Surveillance beam seals the central passage.'
+          : 'WATCHER: sight lost. Beam retracted; the passage is clear.';
       } else if (state.room === 'finale') {
         feedback = getFinaleSettingFeedback(nextSettings, state.progress);
       }

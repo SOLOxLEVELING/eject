@@ -161,10 +161,12 @@ try {
     if (exercise) await checkRoomHint();
     if (exercise) {
       // The old room flags and already-valid audio cannot skip the optical step.
+      await range('#patch-brightness', 20);
       for (const k of ['d', 'd', 'd', 'd', 's', 's', 'k']) await key(k);
       assert.equal(await evaluate(`document.querySelector('[data-cross-relay-state]').dataset.crossRelayState`), 'no-carrier');
       await screenshot('03-crosstalk-no-carrier');
       for (const k of ['w', 'w', 'a', 'a', 'a', 'a']) await key(k);
+      await range('#patch-brightness', 70);
     }
     await key('w'); await key('w'); assert.equal(await position(), '1,1');
     if (exercise) {
@@ -187,7 +189,33 @@ try {
     if (exercise) {
       await key('Escape'); await range('#brightness-slider', 0); await range('#volume-slider', 54); await key('Escape');
     }
-    for (const k of ['s', 's', 'd', 'd', 'd', 'd', 's', 's']) await key(k);
+    for (const k of ['s', 's', 'd', 'd']) await key(k);
+    assert.equal(await position(), '3,3');
+    if (exercise) {
+      await range('#patch-brightness', 70);
+      assert.equal(await evaluate(`document.querySelector('[data-watcher-state]').dataset.watcherState`), 'active');
+      assert.equal(await evaluate(`document.querySelector('[data-watcher-state]').dataset.tile`), 'wall');
+      await key('d'); assert.equal(await position(), '3,3');
+      await screenshot('v3-5.6-watcher-bright-blocked');
+      await focus('#patch-brightness'); await key('ArrowLeft');
+      assert.equal(await position(), '3,3');
+      assert.equal(await evaluate(`document.activeElement.id`), 'patch-brightness');
+      await click('[data-testid="patch-return-btn"]');
+    }
+    await range('#patch-brightness', 20);
+    assert.equal(await evaluate(`document.querySelector('[data-watcher-state]').dataset.watcherState`), 'blind');
+    await key('d'); assert.equal(await position(), '4,3');
+    if (exercise) {
+      await range('#patch-brightness', 70);
+      assert.equal(await evaluate(`document.querySelector('#patch-brightness').value`), '20');
+      assert.equal(await position(), '4,3');
+      assert.equal(await evaluate(`document.querySelector('[data-watcher-state]').dataset.tile`), 'floor');
+      assert.equal(await evaluate(`document.querySelector('#patch-audio-status').textContent`), 'Passage occupied. Step clear to raise brightness.');
+      await delay(220);
+      assert.equal(await evaluate(`getComputedStyle(document.querySelector('.watcher-beam')).transform`), 'matrix(1, 0, 0, 0, 0, 0)');
+      await screenshot('v3-5.6-watcher-dark-crossing');
+    }
+    for (const k of ['d', 's', 's']) await key(k);
     assert.equal(await position(), '5,5');
     if (exercise) {
       await key('k'); assert.equal(await exit(), 'locked');
@@ -206,6 +234,7 @@ try {
     assert.equal(await exit(), 'unlocked');
     assert(await evaluate(`document.querySelector('#chamber-note').textContent.includes('They can finally hear each other.')`));
     await screenshot('03-crosstalk-exit-powered');
+    await range('#patch-brightness', 70);
     if (exercise) {
       await key('Escape'); await range('#volume-slider', 0); await click('[role="switch"]');
       assert.equal(await exit(), 'unlocked');
@@ -217,6 +246,7 @@ try {
     }
     if (await evaluate(`matchMedia('(prefers-reduced-motion: reduce)').matches`)) {
       assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cable-output')).animationName`), 'none');
+      assert(await evaluate(`parseFloat(getComputedStyle(document.querySelector('.watcher-beam')).transitionDuration) <= 0.001`));
     }
     for (const k of ['w', 'w', 'w', 'w', 'd', 'd', 's', 's', 'd']) await key(k);
     assert.equal(await room(), 'finale');
@@ -912,6 +942,7 @@ try {
   console.log('PASS: cold start → three original puzzles → The Frame → Cross-Talk → live-setting finale → escape scene → reset title; three complete escapes, non-blocking chamber notes, menu restart and boot return.');
   console.log('PASS: OP-01 artwork, world geometry beneath spatial darkness, glyph threshold/reveal, proximity, opening door leaves, muted/low/high/stable resonator, terminal authorization and reduced-motion art.');
   console.log('PASS: The Frame room-sized shutter conceals the inaccessible half and retracts in 280ms; same-position camera/light comparison, collision alignment, safe rejection on passage/beyond/near exit, entry-side restoration, instant reduced motion, no browser resizing/fullscreen and exactly three finale locks.');
+  console.log('PASS: Watcher blocks bright entry, retracts in darkness, rejects brightening on occupied passage, preserves slider focus and completes the bright → dark → cross → relay sequence.');
   console.log('PASS: Cross-Talk requires lens before relay, 69/70 reveal, latched optical carrier, stable unmuted relay, separate proximity/focus isolation, powered exit, reduced-motion cable and 390px room.');
   console.log('PASS: player-centered spatial darkness, same-position 20/80 reveal, edge/movement synchronization, readable player and pointer-transparent lighting.');
   console.log('PASS: one 520ms glyph halo per run, no retrigger on threshold oscillation, no early reveal at 69, no unlock or muted audio side effects, fresh replay and reduced-motion suppression; Patch Deck text >=12px, visible keyboard focus, Hint label and overlap/overflow checks from 320px to 1280px including expanded controls.');

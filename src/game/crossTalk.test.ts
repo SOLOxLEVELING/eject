@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createInitialState, gameReducer } from './gameReducer';
 import { CROSS_TALK_CHAMBER as room, ROOMS } from './levels';
-import { canMove, getFinaleDiagnostics, getNextCrossTalkStage, isAdjacent, isFinalGateReady, isRoomExitUnlocked } from './rules';
+import { canMove, getFinaleDiagnostics, getNextCrossTalkStage, getTileAt, isAdjacent, isFinalGateReady, isRoomExitUnlocked } from './rules';
 import type { Coordinates, GameState, Progress } from './types';
 
 function crossState(position: Coordinates = room.spawn, crossTalkStage: Progress['crossTalkStage'] = 'unlinked'): GameState {
@@ -67,7 +67,7 @@ describe('Cross-Talk: optical carrier, then acoustic relay', () => {
     expect(createInitialState().progress.crossTalkStage).toBe('unlinked');
   });
 
-  it('keeps both machines and every floor reachable for every stage and extreme setting', () => {
+  it('opens the whole room in darkness and prevents a bright bypass for every circuit stage', () => {
     for (const crossTalkStage of ['unlinked', 'routed', 'powered'] as const) {
       for (const brightness of [0, 100]) {
         for (const muted of [true, false]) {
@@ -85,15 +85,96 @@ describe('Cross-Talk: optical carrier, then acoustic relay', () => {
             }
           }
           room.tiles.forEach((row, y) => row.forEach((tile, x) => {
-            if (tile === 'floor') expect(seen.has(`${x},${y}`)).toBe(true);
+            if (tile === 'floor' || tile === 'watcher') {
+              expect(seen.has(`${x},${y}`), `${x},${y} at brightness ${brightness}`).toBe(brightness === 0 || x < 4);
+            }
             if (tile === 'node' || tile === 'wall') expect(canMove(room, { x, y }, state.progress, state.settings)).toBe(false);
           }));
           expect(queue.some((position) => isAdjacent(position, room.nodePosition))).toBe(true);
-          expect(queue.some((position) => isAdjacent(position, room.relayPosition!))).toBe(true);
-          expect(seen.has('8,3')).toBe(crossTalkStage === 'powered');
+          expect(queue.some((position) => isAdjacent(position, room.relayPosition!))).toBe(brightness === 0);
+          expect(seen.has('8,3')).toBe(brightness === 0 && crossTalkStage === 'powered');
         }
       }
     }
+  });
+
+  it('blocks bright entry from both sides, opens below the reveal threshold, and keeps the occupied tile valid', () => {
+    for (const brightness of [70, 100]) {
+      for (const [x, direction] of [[3, 'right'], [5, 'left']] as const) {
+        const state = crossState({ x, y: 3 });
+        state.settings.brightness = brightness;
+        expect(getTileAt(room, { x: 4, y: 3 }, state.settings)).toBe('wall');
+        const blocked = gameReducer(state, { type: 'MOVE', direction });
+        expect(blocked.position).toEqual(state.position);
+        expect(blocked.feedback).toContain('WATCHER');
+      }
+    }
+    for (const brightness of [0, 20, 69]) {
+      for (const [x, direction] of [[3, 'right'], [5, 'left']] as const) {
+        let state = crossState({ x, y: 3 });
+        state = gameReducer(state, { type: 'SET_BRIGHTNESS', value: brightness });
+        state = gameReducer(state, { type: 'MOVE', direction });
+        expect(state.position).toEqual({ x: 4, y: 3 });
+        for (const value of [0, 20, 69, 70, 100]) {
+          const changed = gameReducer(state, { type: 'SET_BRIGHTNESS', value });
+          expect(changed.position).toEqual(state.position);
+          expect(changed.settings.brightness).toBe(value >= 70 ? brightness : value);
+          expect(canMove(room, changed.position, changed.progress, changed.settings)).toBe(true);
+          if (value >= 70) expect(changed.feedback).toContain('passage occupied');
+          expect(gameReducer(changed, { type: 'MOVE', direction }).position).toEqual({ x: x === 3 ? 5 : 3, y: 3 });
+        }
+      }
+    }
+  });
+
+  it('can recover from either side at every floor tile after arbitrary brightness changes', () => {
+    room.tiles.forEach((row, y) => row.forEach((tile, x) => {
+      if (tile !== 'floor' && tile !== 'watcher') return;
+      let state = crossState({ x, y });
+      state.settings.brightness = 20;
+      for (const value of [100, 0, 70, 69, 20]) {
+        state = gameReducer(state, { type: 'SET_BRIGHTNESS', value });
+        expect(canMove(room, state.position, state.progress, state.settings)).toBe(true);
+      }
+      // Every legal tile can return to spawn by lowering the light; no relocation required.
+      const queue = [state.position];
+      const seen = new Set([`${x},${y}`]);
+      for (let i = 0; i < queue.length; i++) {
+        const p = queue[i];
+        for (const next of [{ x: p.x - 1, y: p.y }, { x: p.x + 1, y: p.y }, { x: p.x, y: p.y - 1 }, { x: p.x, y: p.y + 1 }]) {
+          const key = `${next.x},${next.y}`;
+          if (!seen.has(key) && canMove(room, next, state.progress, state.settings)) {
+            seen.add(key); queue.push(next);
+          }
+        }
+      }
+      expect(seen.has(`${room.spawn.x},${room.spawn.y}`)).toBe(true);
+    }));
+  });
+
+  it('completes bright receiver → dark crossing → audio relay → finale using real moves', () => {
+    let state = crossState();
+    const move = (...directions: Array<'up' | 'down' | 'left' | 'right'>) => {
+      for (const direction of directions) state = gameReducer(state, { type: 'MOVE', direction });
+    };
+    move('up', 'up');
+    state = gameReducer(state, { type: 'INTERACT' });
+    expect(state.progress.crossTalkStage).toBe('routed');
+    move('down', 'down', 'right', 'right', 'right');
+    expect(state.position).toEqual({ x: 3, y: 3 });
+    state = gameReducer(state, { type: 'SET_BRIGHTNESS', value: 20 });
+    move('right', 'right', 'down', 'down');
+    expect(state.position).toEqual({ x: 5, y: 5 });
+    state = gameReducer(state, { type: 'SET_VOLUME', value: 54 });
+    state = gameReducer(state, { type: 'INTERACT' });
+    expect(state.progress.crossTalkStage).toBe('routed');
+    state = gameReducer(state, { type: 'SET_VOLUME', value: 55 });
+    state = gameReducer(state, { type: 'INTERACT' });
+    expect(state.progress.crossTalkStage).toBe('powered');
+    // Restoring light beyond the passage is safe and cannot undo the relay.
+    state = gameReducer(state, { type: 'SET_BRIGHTNESS', value: 100 });
+    move('up', 'up', 'up', 'up', 'right', 'right', 'down', 'down', 'right');
+    expect(state.room).toBe('finale');
   });
 
   it('gates exit movement on the relay and does not add a fourth finale prerequisite', () => {

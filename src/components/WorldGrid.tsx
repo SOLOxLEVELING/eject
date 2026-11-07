@@ -120,6 +120,8 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
             {row.map((baseTile, x) => {
               const tile = getTileAt(chamber, { x, y }, settings) ?? baseTile;
               const isFrame = baseTile === 'frame';
+              const isWatcher = baseTile === 'watcher';
+              const watcherActive = isWatcher && tile === 'wall';
               const isPlayer = position.x === x && position.y === y;
               const isNode = tile === 'node';
               const nodeNearby = isNode && isAdjacent(position, { x, y });
@@ -148,6 +150,7 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
               const tileClasses = [
                 'world-tile', `tile-${tile}`,
                 isFrame ? 'tile-frame' : '',
+                isWatcher ? 'tile-watcher' : '',
                 isPlayer ? 'tile-player' : '',
                 nodeObscured ? 'tile-node-obscured' : '',
                 nodeRevealed ? 'tile-node-revealed' : '',
@@ -156,7 +159,7 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
                 nodeNearby && canInteractNow ? 'tile-node-ready' : '',
                 tile === 'exit' ? exitUnlocked ? 'tile-exit-unlocked' : 'tile-exit-locked' : '',
               ].filter(Boolean).join(' ');
-              const label = isPlayer ? 'Operator OP-01' : isFrame ? exitUnlocked ? 'Retracted frame: clear passage' : 'Containment frame: blocked passage' : isNode ? crossRelay ? `Acoustic relay: ${nodeActivated ? 'powered' : relayCode}` : nodeLabel
+              const label = isPlayer ? 'Operator OP-01' : isWatcher ? watcherActive ? 'Watcher: active beam, passage blocked' : 'Watcher: sight lost, passage open' : isFrame ? exitUnlocked ? 'Retracted frame: clear passage' : 'Containment frame: blocked passage' : isNode ? crossRelay ? `Acoustic relay: ${nodeActivated ? 'powered' : relayCode}` : nodeLabel
                 : tile === 'exit' ? exitUnlocked ? 'Open exit' : 'Sealed exit'
                   : tile === 'wall' ? 'Bulkhead wall' : 'Floor';
 
@@ -169,6 +172,7 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
                   data-coords={`${x},${y}`}
                   data-tile={tile}
                   data-frame-state={isFrame ? settings.windowMode : undefined}
+                  data-watcher-state={isWatcher ? watcherActive ? 'active' : 'blind' : undefined}
                   data-cross-receiver-state={crossReceiver ? nodeActivated ? 'linked' : glyphVisible ? 'revealed' : 'hidden' : undefined}
                   data-cross-relay-state={crossRelay ? nodeActivated ? 'powered' : progress.crossTalkStage === 'unlinked' ? 'no-carrier' : audioStatus.toLowerCase().replaceAll(' ', '-') : undefined}
                   data-wall-face={exposedWall || undefined}
@@ -179,11 +183,23 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
                   data-terminal-state={isNode && chamber.id === 'controls' ? nodeActivated ? 'activated' : keyAuthorized ? 'authorized' : 'revoked' : undefined}
                   data-exit-state={tile === 'exit' ? exitUnlocked ? 'unlocked' : 'locked' : undefined}
                 >
-                  {tile === 'wall' && !isFrame && <span className="tile-wall-mark" aria-hidden="true" />}
+                  {tile === 'wall' && !isFrame && !isWatcher && <span className="tile-wall-mark" aria-hidden="true" />}
                   {tile === 'wall' && x === 3 && y === 0 && (
                     <span className="wall-inscription" aria-hidden="true">{{ display: 'LIGHT LEAVES A TRACE', audio: 'SEEK A STEADY SIGNAL', controls: 'IDENTITY IS AN INPUT', frame: 'FRAME', crosstalk: 'CROSS-TALK', finale: 'THREE SYSTEMS · ONE EXIT' }[chamber.id]}</span>
                   )}
                   {tile === 'floor' && <span className="tile-floor-cross" aria-hidden="true" />}
+                  {isWatcher && (
+                    <div className="watcher-mechanism" aria-hidden="true">
+                      <svg className="watcher-eye" viewBox="0 0 100 50" focusable="false">
+                        <path className="watcher-mount" d="M20 0h60v10H20zM12 18l12-8h52l12 8v18L76 46H24L12 36z" />
+                        <path className="watcher-lid" d="M22 27Q50 3 78 27Q50 51 22 27Z" />
+                        <circle className="watcher-pupil" cx="50" cy="27" r="9" />
+                        <path className="watcher-shut" d="M22 27h56" />
+                      </svg>
+                      <span className="watcher-beam" />
+                      <span className="watcher-status">{watcherActive ? 'WATCHING · BLOCKED' : 'SIGHT LOST · OPEN'}</span>
+                    </div>
+                  )}
                   {isFrame && (
                     <div className="frame-mechanism" aria-hidden="true">
                       <span className="frame-rail" />
@@ -286,7 +302,7 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
             <p className="frame-clue" role="note">THE FRAME IS PART OF THE PRISON.</p>
           </>
         )}
-        {crossTalk && <p className="frame-clue" role="note">CATCH THE LIGHT. CARRY THE SIGNAL.</p>}
+        {crossTalk && <p className="frame-clue" role="note">THE EYE CANNOT SEE IN THE DARK.</p>}
         <div
           className="world-luminance-veil"
           aria-hidden="true"

@@ -99,7 +99,7 @@ export const CROSS_TALK_CHAMBER: RoomBlueprint = {
   id: 'crosstalk',
   code: 'SECTOR 05 // CROSS-TALK',
   title: 'CROSS-TALK',
-  subtitle: 'CATCH THE LIGHT. CARRY THE SIGNAL.',
+  subtitle: 'CATCH THE LIGHT. ESCAPE THE EYE. CARRY THE SIGNAL.',
   width: 9,
   height: 7,
   spawn: { x: 1, y: 3 },
@@ -110,9 +110,10 @@ export const CROSS_TALK_CHAMBER: RoomBlueprint = {
     ['wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall'],
     ['wall', 'floor', 'node', 'floor', 'wall', 'floor', 'floor', 'floor', 'wall'],
     ['wall', 'floor', 'wall', 'floor', 'wall', 'floor', 'wall', 'floor', 'wall'],
-    ['wall', 'floor', 'floor', 'floor', 'floor', 'floor', 'wall', 'floor', 'exit'],
+    ['wall', 'floor', 'floor', 'floor', 'watcher', 'floor', 'wall', 'floor', 'exit'],
     ['wall', 'floor', 'wall', 'wall', 'wall', 'floor', 'wall', 'floor', 'wall'],
-    ['wall', 'floor', 'floor', 'floor', 'floor', 'floor', 'node', 'floor', 'wall'],
+    // Seal the lower bypass so the light-sensitive passage is the only crossing.
+    ['wall', 'floor', 'floor', 'floor', 'wall', 'floor', 'node', 'floor', 'wall'],
     ['wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall'],
   ],
 };
