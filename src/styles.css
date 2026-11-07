@@ -45,8 +45,12 @@ kbd { font-family: var(--font-mono); font-size: 0.8em; }
 .crt-online { margin: 0 0 8px; font-size: clamp(0.65rem, 1vw, 0.85rem); color: #aabdac; }
 .crt-subtitle { margin: 6px 0 16px; font-size: 0.9rem; }
 .crt-menu { display: flex; flex-direction: column; align-items: stretch; gap: 4px; width: 100%; }
-.crt-menu button { padding: 8px; border: 1px solid transparent; background: transparent; color: #efcf98; font-size: clamp(0.75rem, 1.15vw, 1rem); cursor: pointer; }
-.crt-menu button:hover, .crt-menu button:focus-visible { border-color: #efcf98; background: #efcf9810; outline-color: #efcf98; }
+.crt-menu button { position: relative; padding: 8px; border: 1px solid transparent; background: transparent; color: #efcf98; font-size: clamp(0.75rem, 1.15vw, 1rem); cursor: pointer; transition: background-color 140ms ease-out, border-color 140ms ease-out, text-shadow 140ms ease-out; }
+.crt-menu button::before { content: ''; position: absolute; left: 10px; top: calc(50% - 4px); border: 4px solid transparent; border-left-color: currentColor; opacity: 0; }
+.crt-menu button:hover, .crt-menu button:focus-visible { border-color: #efcf98; background: #efcf9810; outline-color: #efcf98; text-shadow: 0 0 8px #efcf9860; }
+.crt-menu button:hover::before, .crt-menu button:focus-visible::before { opacity: 1; }
+.last-session-title .crt-screen::after { content: ''; position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 24px #efcf980a, 0 0 28px #efcf980c; animation: crt-breathe 6s ease-in-out infinite; }
+@keyframes crt-breathe { 50% { opacity: 0.35; } }
 .crt-shutdown { margin: 12px 0 0; color: #e3a079; font-size: clamp(0.6rem, 0.9vw, 0.78rem); }
 .title-caption { position: absolute; bottom: 26px; left: 5%; margin: 0; color: #c0b7b0; font-family: var(--font-serif); font-size: 1.1rem; }
 .title-field-notes { position: absolute; bottom: 28px; left: 4%; width: 390px; max-width: calc(100% - 32px); max-height: 65%; overflow: auto; padding: 22px; background: #252b38; border-left: 3px solid #aabdac; color: #ece5d6; box-shadow: 8px 8px #0c122580; }
@@ -373,6 +377,8 @@ kbd { font-family: var(--font-mono); font-size: 0.8em; }
 .opening-world .tile-exit::after { content: 'SEALED'; position: absolute; z-index: 2; bottom: 8px; font-family: var(--font-mono); font-size: 0.6rem; color: var(--accent-orange); }
 .story-dialogue { position: absolute; z-index: 3; left: 7%; right: 7%; bottom: 100px; max-width: 840px; padding: 16px 24px; border-left: 3px solid var(--accent-sage); background: #0c1014f5; color: var(--ink-paper); }
 .story-dialogue p { display: flex; gap: 16px; margin: 8px 0; font-size: clamp(1rem, 1.6vw, 1.3rem); }
+.opening-sequence .story-dialogue:empty { display: none; }
+.opening-sequence .story-dialogue p { min-height: 4rem; animation: note-arrival 160ms ease-out; }
 .dialogue-speaker { flex: 0 0 70px; color: var(--accent-sage); font: 0.78rem/1.8 var(--font-mono); }
 .story-dialogue [data-speaker='SYSTEM'] { color: #c2c9c4; font-family: var(--font-mono); font-size: clamp(0.85rem, 1.3vw, 1.05rem); }
 .story-dialogue [data-speaker='SYSTEM'] .dialogue-speaker { color: var(--accent-orange); }
@@ -503,7 +509,7 @@ kbd { font-family: var(--font-mono); font-size: 0.8em; }
   .opening-world, .opening-world .world-grid, .door-leaf, .frame-beam, .frame-shutter { transition: none; }
   .world-grid, .tile-entity-player .operator, .room-machine, .optical-signal, .resonator-ring, .tile-exit .entity-code, .cross-cable path { animation: none !important; }
   .opening-world .world-grid { transform: none; }
-  .opening-sequence .door-leaf, .bedroom-rain, .crt-cursor, .bedroom-fragments, .escape-operator, .chamber-arrival { animation: none !important; }
+  .opening-sequence .door-leaf, .opening-sequence .story-dialogue p, .last-session-title .crt-screen::after, .bedroom-rain, .crt-cursor, .bedroom-fragments, .escape-operator, .chamber-arrival { animation: none !important; }
   [data-moment='pull'] .bedroom-fragments { opacity: 1; transform: translate(130px, -20px); }
   *, *::before, *::after {
     transition-duration: 0.01ms !important;

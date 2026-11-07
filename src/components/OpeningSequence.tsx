@@ -12,18 +12,21 @@ type OpeningSequenceProps = {
 };
 
 export function OpeningSequence({ state, onComplete }: OpeningSequenceProps) {
-  const [shot, setShot] = useState(0);
+  const [{ shot, line }, setPosition] = useState({ shot: 0, line: 0 });
   const nextRef = useRef<HTMLButtonElement | null>(null);
   const beat = OPENING_BEATS[shot];
+  const lastLine = line >= beat.lines.length - 1;
   const advance = useCallback(() => {
-    if (shot === OPENING_BEATS.length - 1) onComplete();
-    else setShot(shot + 1);
-  }, [shot, onComplete]);
+    if (!lastLine) setPosition({ shot, line: line + 1 });
+    else if (shot === OPENING_BEATS.length - 1) onComplete();
+    else setPosition({ shot: shot + 1, line: 0 });
+  }, [shot, line, lastLine, onComplete]);
 
   useEffect(() => nextRef.current?.focus({ preventScroll: true }), []);
 
   useEffect(() => {
-    const timer = window.setTimeout(advance, beat.duration);
+    // Share each beat's original time budget across its lines, including the silent pull.
+    const timer = window.setTimeout(advance, beat.duration / Math.max(1, beat.lines.length));
     function handleKey(event: KeyboardEvent) {
       if (event.isComposing || event.altKey || event.ctrlKey || event.metaKey) return;
       if (event.key !== 'Escape' && event.key !== 'Enter') return;
@@ -39,13 +42,14 @@ export function OpeningSequence({ state, onComplete }: OpeningSequenceProps) {
       window.clearTimeout(timer);
       window.removeEventListener('keydown', handleKey, true);
     };
-  }, [advance, beat.duration, onComplete]);
+  }, [advance, beat.duration, beat.lines.length, onComplete]);
 
   return (
     <main
       className="opening-sequence"
       data-phase="cinematic"
       data-shot={beat.id}
+      data-line={line}
       data-door-locked={shot >= 3}
       aria-label="Opening story"
       onClick={(event) => {
@@ -72,12 +76,12 @@ export function OpeningSequence({ state, onComplete }: OpeningSequenceProps) {
       <button type="button" className="console-btn story-skip" onClick={onComplete} data-testid="skip-intro-btn">
         Skip intro <kbd>Esc</kbd>
       </button>
-      {beat.lines.length > 0 && <StoryDialogue lines={beat.lines} />}
+      <StoryDialogue lines={beat.lines.slice(line, line + 1)} />
       {shot === 4 && <p className="story-controls">Move: WASD / Arrows · Interact: E · Settings: Esc</p>}
       <footer className="story-navigation">
         <span>{shot + 1} / 5</span>
         <button ref={nextRef} type="button" className="console-btn" onClick={advance} data-testid="advance-intro-btn">
-          {shot === 4 ? 'Enter the game' : 'Continue'} <kbd>Enter</kbd>
+          {shot === 4 && lastLine ? 'Enter the game' : 'Continue'} <kbd>Enter</kbd>
         </button>
       </footer>
     </main>
