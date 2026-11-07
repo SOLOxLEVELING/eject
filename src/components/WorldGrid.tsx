@@ -65,7 +65,7 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
     if (chamber.id === 'frame') {
       contextualHint = exitUnlocked ? 'The frame has withdrawn. The passage is clear.' : 'The frame cuts through the passage. Check the world parameters.';
     } else if (exitUnlocked) {
-      contextualHint = 'Linked. The door is open.';
+      contextualHint = chamber.id === 'audio' ? 'Resonator latched. The crossing still listens.' : 'Linked. The door is open.';
     } else if (chamber.id === 'display') {
       contextualHint = glyphVisible ? 'Optical glyph within reach.' : 'A faint trace. It needs more light.';
     } else if (chamber.id === 'audio') {
@@ -120,6 +120,8 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
             {row.map((baseTile, x) => {
               const tile = getTileAt(chamber, { x, y }, settings) ?? baseTile;
               const isFrame = baseTile === 'frame';
+              const isSoundGate = baseTile === 'soundgate';
+              const soundGateClosed = isSoundGate && tile === 'wall';
               const isWatcher = baseTile === 'watcher';
               const watcherActive = isWatcher && tile === 'wall';
               const isPlayer = position.x === x && position.y === y;
@@ -151,6 +153,7 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
                 'world-tile', `tile-${tile}`,
                 isFrame ? 'tile-frame' : '',
                 isWatcher ? 'tile-watcher' : '',
+                isSoundGate ? 'tile-soundgate' : '',
                 isPlayer ? 'tile-player' : '',
                 nodeObscured ? 'tile-node-obscured' : '',
                 nodeRevealed ? 'tile-node-revealed' : '',
@@ -159,7 +162,7 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
                 nodeNearby && canInteractNow ? 'tile-node-ready' : '',
                 tile === 'exit' ? exitUnlocked ? 'tile-exit-unlocked' : 'tile-exit-locked' : '',
               ].filter(Boolean).join(' ');
-              const label = isPlayer ? 'Operator OP-01' : isWatcher ? watcherActive ? 'Watcher: active beam, passage blocked' : 'Watcher: sight lost, passage open' : isFrame ? exitUnlocked ? 'Retracted frame: clear passage' : 'Containment frame: blocked passage' : isNode ? crossRelay ? `Acoustic relay: ${nodeActivated ? 'powered' : relayCode}` : nodeLabel
+              const label = isPlayer ? 'Operator OP-01' : isSoundGate ? soundGateClosed ? 'Sound-sensitive shutter: sealed by sound' : 'Sound-sensitive shutter: silent, open' : isWatcher ? watcherActive ? 'Watcher: active beam, passage blocked' : 'Watcher: sight lost, passage open' : isFrame ? exitUnlocked ? 'Retracted frame: clear passage' : 'Containment frame: blocked passage' : isNode ? crossRelay ? `Acoustic relay: ${nodeActivated ? 'powered' : relayCode}` : nodeLabel
                 : tile === 'exit' ? exitUnlocked ? 'Open exit' : 'Sealed exit'
                   : tile === 'wall' ? 'Bulkhead wall' : 'Floor';
 
@@ -173,6 +176,7 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
                   data-tile={tile}
                   data-frame-state={isFrame ? settings.windowMode : undefined}
                   data-watcher-state={isWatcher ? watcherActive ? 'active' : 'blind' : undefined}
+                  data-soundgate-state={isSoundGate ? soundGateClosed ? 'closed' : 'open' : undefined}
                   data-cross-receiver-state={crossReceiver ? nodeActivated ? 'linked' : glyphVisible ? 'revealed' : 'hidden' : undefined}
                   data-cross-relay-state={crossRelay ? nodeActivated ? 'powered' : progress.crossTalkStage === 'unlinked' ? 'no-carrier' : audioStatus.toLowerCase().replaceAll(' ', '-') : undefined}
                   data-wall-face={exposedWall || undefined}
@@ -183,11 +187,23 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
                   data-terminal-state={isNode && chamber.id === 'controls' ? nodeActivated ? 'activated' : keyAuthorized ? 'authorized' : 'revoked' : undefined}
                   data-exit-state={tile === 'exit' ? exitUnlocked ? 'unlocked' : 'locked' : undefined}
                 >
-                  {tile === 'wall' && !isFrame && !isWatcher && <span className="tile-wall-mark" aria-hidden="true" />}
+                  {tile === 'wall' && !isFrame && !isWatcher && !isSoundGate && <span className="tile-wall-mark" aria-hidden="true" />}
                   {tile === 'wall' && x === 3 && y === 0 && (
                     <span className="wall-inscription" aria-hidden="true">{{ display: 'LIGHT LEAVES A TRACE', audio: 'SEEK A STEADY SIGNAL', controls: 'IDENTITY IS AN INPUT', frame: 'FRAME', crosstalk: 'CROSS-TALK', finale: 'THREE SYSTEMS · ONE EXIT' }[chamber.id]}</span>
                   )}
                   {tile === 'floor' && <span className="tile-floor-cross" aria-hidden="true" />}
+                  {isSoundGate && (
+                    <div className="soundgate-mechanism" aria-hidden="true">
+                      <span className="soundgate-leaf soundgate-leaf-left" />
+                      <span className="soundgate-leaf soundgate-leaf-right" />
+                      <svg className="soundgate-sensor" viewBox="0 0 100 40" focusable="false">
+                        <path className="soundgate-housing" d="M10 3h80v34H10z" />
+                        <path className="soundgate-waves" d="M35 13q10 7 0 14m10-20q20 13 0 26m10-30q30 17 0 34" />
+                        <path className="soundgate-silence" d="M30 20h40" />
+                      </svg>
+                      <span className="soundgate-status">{soundGateClosed ? 'SOUND · SEALED' : 'SILENT · OPEN'}</span>
+                    </div>
+                  )}
                   {isWatcher && (
                     <div className="watcher-mechanism" aria-hidden="true">
                       <svg className="watcher-eye" viewBox="0 0 100 50" focusable="false">
@@ -302,6 +318,7 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
             <p className="frame-clue" role="note">THE FRAME IS PART OF THE PRISON.</p>
           </>
         )}
+        {chamber.id === 'audio' && <p className="frame-clue" role="note">THE CROSSING LISTENS.</p>}
         {crossTalk && <p className="frame-clue" role="note">THE EYE CANNOT SEE IN THE DARK.</p>}
         <div
           className="world-luminance-veil"

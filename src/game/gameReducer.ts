@@ -100,6 +100,9 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const targetTile = getTileAt(room, target, state.settings);
 
       if (!canMove(room, target, state.progress, state.settings)) {
+        if (room.tiles[target.y]?.[target.x] === 'soundgate') {
+          return { ...state, feedback: 'SILENT CROSSING: sound seals the shutters. Silence opens them.' };
+        }
         if (room.tiles[target.y]?.[target.x] === 'watcher') {
           return { ...state, feedback: 'WATCHER: passage locked in the light. Its eye cannot see in the dark.' };
         }
@@ -476,7 +479,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
               resonatorActivated: true,
             },
             feedback:
-              'ACOUSTIC RESONATOR ACTIVATED [STABLE] // BULKHEAD LOCK DISENGAGED — WALK ONTO EXIT AT (X:08, Y:03).',
+              'RESONATOR LATCHED // The door is powered. Silence will open the crossing.',
           };
         }
 
@@ -638,6 +641,10 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'SET_MUTED': {
+      if (!action.value && state.room === 'audio' &&
+        ROOMS.audio.tiles[state.position.y]?.[state.position.x] === 'soundgate') {
+        return { ...state, feedback: 'SILENT CROSSING: occupied. Step clear before unmuting. Audio stays muted.' };
+      }
       const nextSettings = {
         ...state.settings,
         muted: action.value,
@@ -647,6 +654,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const feedback =
         state.room === 'finale'
           ? getFinaleSettingFeedback(nextSettings, state.progress)
+          : state.room === 'audio'
+            ? action.value ? 'SILENT CROSSING: muted. Shutters retracted.' : 'SILENT CROSSING: sound detected. Shutters sealed.'
           : action.value
             ? 'AUDIO BUS CLAMPED [MUTED] // RESONANCE SIGNAL SUPPRESSED.'
             : audioStatus === 'STABLE'
@@ -660,29 +669,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       };
     }
 
-    case 'TOGGLE_MUTE': {
-      const nextMuted = !state.settings.muted;
-      const nextSettings = {
-        ...state.settings,
-        muted: nextMuted,
-      };
-      const audioStatus = getAudioStatus(nextSettings);
-
-      const feedback =
-        state.room === 'finale'
-          ? getFinaleSettingFeedback(nextSettings, state.progress)
-          : nextMuted
-            ? 'AUDIO BUS CLAMPED [MUTED] // RESONANCE SIGNAL SUPPRESSED.'
-            : audioStatus === 'STABLE'
-              ? `AUDIO BUS UNCLAMPED [STABLE: ${nextSettings.volume}%] // RESONANCE READY FOR ACTIVATION.`
-              : `AUDIO BUS UNCLAMPED [${audioStatus}: ${nextSettings.volume}%] // TUNE VOLUME TO 55–75% STABLE BAND.`;
-
-      return {
-        ...state,
-        settings: nextSettings,
-        feedback,
-      };
-    }
+    case 'TOGGLE_MUTE':
+      return gameReducer(state, { type: 'SET_MUTED', value: !state.settings.muted });
 
     case 'SET_INTERACT_KEY': {
       const nextLabel = formatBindKey(action.value);

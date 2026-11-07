@@ -136,7 +136,12 @@ try {
     assert.equal(await evaluate(`document.querySelector('[data-testid="chamber-arrival"]').dataset.message`), 'hint');
     assert(!(await modal()));
     assert.equal(await evaluate(`document.activeElement.className`), 'game-world');
-    assert(!(await evaluate(`/\\d|%/.test(document.querySelector('#chamber-note .story-dialogue').textContent)`)));
+    if (await room() === 'audio') {
+      assert(await evaluate(`document.querySelector('#chamber-note .story-dialogue').textContent.includes('55–75')`));
+      assert(await evaluate(`document.querySelector('#chamber-note .story-dialogue').textContent.includes('mute to cross')`));
+    } else {
+      assert(!(await evaluate(`/\\d|%/.test(document.querySelector('#chamber-note .story-dialogue').textContent)`)));
+    }
     if (moveWhileOpen) {
       await key('d'); assert.equal(await position(), '3,3');
       await key('a'); assert.equal(await position(), before);
@@ -153,6 +158,57 @@ try {
     await click('[aria-label="Dismiss chamber note"]');
     assert.equal(await evaluate(`document.activeElement.className`), 'game-world');
     assert(!(await evaluate(`!!document.querySelector('#chamber-note')`)));
+  };
+  const completeSilentCrossing = async (exercise = false) => {
+    assert.equal(await room(), 'audio');
+    assert.equal(await position(), '4,3');
+    assert.equal(await exit(), 'unlocked');
+    assert.equal(await evaluate(`document.querySelectorAll('[data-soundgate-state="closed"]').length`), 3);
+    const toggle = async () => { await click('#patch-mute'); await click('[data-testid="patch-return-btn"]'); };
+    await key('d');
+    if (exercise) {
+      assert(!(await evaluate(`/55|75/.test(document.querySelector('#patch-audio-status').textContent)`)));
+      await key('w'); await key('w');
+      for (const y of [1, 3, 5]) {
+        assert.equal(await position(), `5,${y}`);
+        await key('d'); assert.equal(await position(), `5,${y}`);
+        assert.equal(await evaluate(`getComputedStyle(document.querySelector('.soundgate-waves')).animationName`), 'crossing-waves');
+        if (y === 3) await screenshot('silent-crossing-sound-sealed');
+        await toggle();
+        assert.equal(await evaluate(`document.querySelectorAll('[data-soundgate-state="open"]').length`), 3);
+        await key('d'); assert.equal(await position(), `6,${y}`);
+        // The same reducer guard serves the deck and full settings switch.
+        await key('Escape'); await click('[role="switch"]');
+        assert.equal(await evaluate(`document.querySelector('[role="switch"]').getAttribute('aria-checked')`), 'true');
+        await key('Escape');
+        await click('#patch-mute');
+        assert.equal(await evaluate(`document.querySelector('#patch-mute').getAttribute('aria-pressed')`), 'true');
+        assert.equal(await position(), `6,${y}`);
+        assert(await evaluate(`document.querySelector('#patch-audio-status').textContent.includes('Step clear')`));
+        await click('[data-testid="patch-return-btn"]');
+        await delay(250);
+        assert.equal(await evaluate(`getComputedStyle(document.querySelector('.soundgate-waves')).animationName`), 'none');
+        if (y === 3) await screenshot('silent-crossing-muted-occupied');
+        await key('d'); assert.equal(await position(), `7,${y}`);
+        await toggle();
+        await key('a'); assert.equal(await position(), `7,${y}`);
+        await toggle();
+        await key('a'); await key('a');
+        await toggle();
+        if (y !== 5) { await key('s'); await key('s'); }
+      }
+      await key('w'); await key('w');
+    }
+    await toggle();
+    if (await evaluate(`matchMedia('(prefers-reduced-motion: reduce)').matches`)) {
+      assert.equal(await evaluate(`getComputedStyle(document.querySelector('.soundgate-waves')).animationName`), 'none');
+      assert(await evaluate(`parseFloat(getComputedStyle(document.querySelector('.soundgate-leaf')).transitionDuration) <= 0.001`));
+    }
+    await key('d'); await key('d'); await key('d');
+    assert.equal(await room(), 'controls');
+    // Restore audio for later rooms; Sector 02 must not reset it on exit.
+    assert.equal(await evaluate(`document.querySelector('#patch-mute').getAttribute('aria-pressed')`), 'true');
+    await toggle();
   };
   const completeCrossTalk = async (exercise = false) => {
     assert.equal(await room(), 'crosstalk');
@@ -613,7 +669,7 @@ try {
   assert.equal(await evaluate(`document.querySelector('[data-resonator-state]').dataset.resonatorState`), 'stable');
   await key('Escape'); await delay(450); await screenshot('02-resonator-stable');
   await key('e'); assert.equal(await exit(), 'unlocked');
-  for (let i = 0; i < 4; i++) await key('d'); assert.equal(await room(), 'controls');
+  await completeSilentCrossing(true);
   assert(await evaluate(`document.querySelector('[data-testid="chamber-arrival"]').textContent.includes("It doesn't recognize my input.")`));
   await checkRoomHint();
   for (let i = 0; i < 4; i++) await key('d');
@@ -845,7 +901,8 @@ try {
     for (const k of ['d', 'd', 'd', 'w', 'w', 'e', 's', 'd', 'd', 's', 'd']) await key(k);
     await range('#patch-volume', 65); await click('#patch-mute');
     await click('[data-testid="patch-return-btn"]');
-    for (const k of ['d', 'd', 'd', 'e', 'd', 'd', 'd', 'd']) await key(k);
+    for (const k of ['d', 'd', 'd', 'e']) await key(k);
+    await completeSilentCrossing();
     for (let i = 0; i < 4; i++) await key('d');
     await click('.patch-expansion summary'); await focus('#patch-key'); await key('k'); await key('Enter');
     await key('k'); assert.equal(await exit(), 'locked');
@@ -942,6 +999,7 @@ try {
   console.log('PASS: cold start → three original puzzles → The Frame → Cross-Talk → live-setting finale → escape scene → reset title; three complete escapes, non-blocking chamber notes, menu restart and boot return.');
   console.log('PASS: OP-01 artwork, world geometry beneath spatial darkness, glyph threshold/reveal, proximity, opening door leaves, muted/low/high/stable resonator, terminal authorization and reduced-motion art.');
   console.log('PASS: The Frame room-sized shutter conceals the inaccessible half and retracts in 280ms; same-position camera/light comparison, collision alignment, safe rejection on passage/beyond/near exit, entry-side restoration, instant reduced motion, no browser resizing/fullscreen and exactly three finale locks.');
+  console.log('PASS: Silent Crossing seals all three lanes under sound, retracts in mute, rejects deck/menu unmute on occupied tiles, permits return from either side, preserves resonator latch, numeric guidance via Hint and reduced-motion response.');
   console.log('PASS: Watcher blocks bright entry, retracts in darkness, rejects brightening on occupied passage, preserves slider focus and completes the bright → dark → cross → relay sequence.');
   console.log('PASS: Cross-Talk requires lens before relay, 69/70 reveal, latched optical carrier, stable unmuted relay, separate proximity/focus isolation, powered exit, reduced-motion cable and 390px room.');
   console.log('PASS: player-centered spatial darkness, same-position 20/80 reveal, edge/movement synchronization, readable player and pointer-transparent lighting.');

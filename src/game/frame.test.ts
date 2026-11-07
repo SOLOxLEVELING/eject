@@ -111,8 +111,8 @@ describe('The Frame / in-game Window Mode', () => {
     }
     for (const room of [ROOMS.display, ROOMS.audio, ROOMS.controls, ROOMS.crosstalk, ROOMS.finale]) {
       room.tiles.forEach((row, y) => row.forEach((tile, x) => {
-        expect(getTileAt(room, { x, y }, { windowMode: 'framed' })).toBe(tile === 'watcher' ? 'floor' : tile);
-        expect(getTileAt(room, { x, y }, { windowMode: 'borderless' })).toBe(tile === 'watcher' ? 'floor' : tile);
+        expect(getTileAt(room, { x, y }, { windowMode: 'framed' })).toBe(tile === 'watcher' || tile === 'soundgate' ? 'floor' : tile);
+        expect(getTileAt(room, { x, y }, { windowMode: 'borderless' })).toBe(tile === 'watcher' || tile === 'soundgate' ? 'floor' : tile);
       }));
     }
     const title = createInitialState();

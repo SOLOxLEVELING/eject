@@ -37,7 +37,8 @@ export function Hud({ chamber, settings, progress, onOpenSettings }: HudProps) {
   if (exitUnlocked) {
     objective = chamber.id === 'finale'
       ? 'The boundary is open. Leave the system.'
-      : chamber.id === 'frame' ? 'The frame has withdrawn. Cross the passage.'
+      : chamber.id === 'audio' ? 'The signal is latched. Find a silent crossing.'
+        : chamber.id === 'frame' ? 'The frame has withdrawn. Cross the passage.'
         : 'Door released. Find the next chamber.';
   } else if (fault) {
     const system = { display: 'light', audio: 'resonance', controls: 'authorized input' }[fault.id];

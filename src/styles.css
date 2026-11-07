@@ -218,6 +218,25 @@ kbd { font-family: var(--font-mono); font-size: 0.8em; }
 .tile-node-activated .relay-coil { stroke: var(--accent-sage); }
 [data-cross-relay-state='no-carrier'] .resonator-wave { opacity: 0; }
 @keyframes carrier-route { from { stroke-dashoffset: 60; } to { stroke-dashoffset: 0; } }
+/* Sound-sensitive shutters use the same resolved tiles as movement. */
+.tile-soundgate, .tile-soundgate.tile-wall[data-wall-face='true'] { z-index: 5; background: #1b2225; border: 0; box-shadow: inset 4px 0 #65766e, inset -4px 0 #65766e; }
+.tile-soundgate::before, .tile-soundgate::after { display: none; }
+.soundgate-mechanism { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.soundgate-leaf { position: absolute; top: 22%; bottom: 0; width: 50%; background: repeating-linear-gradient(0deg, #394340 0 10px, #252e30 10px 13px); border: 2px solid var(--accent-orange); transition: transform 220ms ease-out; }
+.soundgate-leaf-left { left: 0; }
+.soundgate-leaf-right { right: 0; }
+.soundgate-sensor { position: absolute; top: 0; left: 20%; width: 60%; height: 42%; }
+.soundgate-housing { fill: #101618; stroke: #a4b2a8; stroke-width: 2; }
+.soundgate-waves { fill: none; stroke: var(--accent-orange); stroke-width: 3; transform-origin: center; animation: crossing-waves 900ms ease-in-out infinite alternate; }
+.soundgate-silence { stroke: var(--accent-sage); stroke-width: 4; opacity: 0; }
+.soundgate-status { position: absolute; bottom: 4%; left: 50%; transform: translateX(-50%); padding: 2px 4px; background: #101618; color: var(--accent-orange); font: 0.7rem var(--font-mono); white-space: nowrap; }
+[data-soundgate-state='open'] .soundgate-leaf-left { transform: translateX(-92%); }
+[data-soundgate-state='open'] .soundgate-leaf-right { transform: translateX(92%); }
+[data-soundgate-state='open'] .soundgate-waves { opacity: 0; animation: none; }
+[data-soundgate-state='open'] .soundgate-silence { opacity: 1; }
+[data-soundgate-state='open'] .soundgate-status { color: var(--accent-sage); }
+.patch-tuning-meter { display: inline-block; width: 80px; margin: 0 8px; vertical-align: middle; }
+@keyframes crossing-waves { to { transform: scaleX(1.16); } }
 /* The eye and retracting beam share the passage's resolved collision state. */
 .tile-watcher, .tile-watcher.tile-wall[data-wall-face='true'] { z-index: 5; background: #1b2225; border: 0; box-shadow: inset 5px 0 #465054, inset -5px 0 #465054; }
 .tile-watcher::before, .tile-watcher::after { display: none; }
@@ -531,7 +550,8 @@ kbd { font-family: var(--font-mono); font-size: 0.8em; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .watcher-beam { transition: none; }
+  .watcher-beam, .soundgate-leaf { transition: none; }
+  .soundgate-waves { animation: none; }
   .opening-world, .opening-world .world-grid, .door-leaf, .frame-beam, .frame-shutter { transition: none; }
   .world-grid, .tile-entity-player .operator, .room-machine, .optical-signal, .glyph-discovery, .resonator-ring, .tile-exit .entity-code, .cross-cable path { animation: none !important; }
   .opening-world .world-grid { transform: none; }

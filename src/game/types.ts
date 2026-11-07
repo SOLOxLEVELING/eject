@@ -30,7 +30,7 @@ export type Coordinates = {
   y: number;
 };
 
-export type TileKind = 'wall' | 'floor' | 'node' | 'exit' | 'frame' | 'watcher';
+export type TileKind = 'wall' | 'floor' | 'node' | 'exit' | 'frame' | 'watcher' | 'soundgate';
 
 export type RoomBlueprint = {
   id: RoomId;

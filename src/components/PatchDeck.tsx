@@ -60,7 +60,12 @@ export function PatchDeck({
       <p id="patch-audio-status" className="patch-signal" role="status">
         {activeRoom === 'crosstalk' && feedback.startsWith('WATCHER: passage occupied.')
           ? 'Passage occupied. Step clear to raise brightness.'
-          : <>Signal: {getAudioStatus(settings)} <span>· stable {AUDIO_STABLE_MIN}–{AUDIO_STABLE_MAX}, unmuted</span></>}
+          : activeRoom === 'audio' && feedback.startsWith('SILENT CROSSING: occupied.')
+            ? 'Crossing occupied. Step clear before unmuting.'
+            : <>Signal: {getAudioStatus(settings)} <span className="patch-tuning-meter resonance-meter-track" aria-hidden="true">
+              <span className="resonance-stable-band" style={{ left: `${AUDIO_STABLE_MIN}%`, width: `${AUDIO_STABLE_MAX - AUDIO_STABLE_MIN}%` }} />
+              <span className="resonance-level-needle" style={{ left: `${settings.volume}%` }} />
+            </span><span>· {settings.muted ? 'silent' : 'listening'}</span></>}
       </p>
     </aside>
   );

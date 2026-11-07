@@ -35,7 +35,7 @@ export const AUDIO_CHAMBER: RoomBlueprint = {
   code: 'SECTOR 02 // AUDIO',
   title: 'ACOUSTIC RESONANCE BAY',
   subtitle:
-    'Resonance lock engaged. Calibrate Volume to 55–75% inclusive with Mute OFF, then activate the resonator.',
+    'Find a steady signal. The crossing listens for sound.',
   width: 9,
   height: 7,
   spawn: { x: 1, y: 3 },
@@ -43,11 +43,11 @@ export const AUDIO_CHAMBER: RoomBlueprint = {
   exitPosition: { x: 8, y: 3 },
   tiles: [
     ['wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall'],
-    ['wall', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'wall'],
+    ['wall', 'floor', 'floor', 'floor', 'floor', 'floor', 'soundgate', 'floor', 'wall'],
     ['wall', 'floor', 'wall', 'floor', 'node', 'floor', 'wall', 'floor', 'wall'],
-    ['wall', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'exit'],
+    ['wall', 'floor', 'floor', 'floor', 'floor', 'floor', 'soundgate', 'floor', 'exit'],
     ['wall', 'floor', 'wall', 'floor', 'wall', 'floor', 'wall', 'floor', 'wall'],
-    ['wall', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'wall'],
+    ['wall', 'floor', 'floor', 'floor', 'floor', 'floor', 'soundgate', 'floor', 'wall'],
     ['wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall'],
   ],
 };

@@ -359,6 +359,7 @@ describe('Stage 1–4 complete game rules', () => {
     state = gameReducer(state, { type: 'SET_VOLUME', value: 65 });
     state = gameReducer(state, { type: 'INTERACT' });
     expect(state.progress.resonatorActivated).toBe(true);
+    state = gameReducer(state, { type: 'SET_MUTED', value: true });
 
     state = gameReducer(state, { type: 'MOVE', direction: 'right' }); // (5,3)
     state = gameReducer(state, { type: 'MOVE', direction: 'right' }); // (6,3)
@@ -367,6 +368,7 @@ describe('Stage 1–4 complete game rules', () => {
     expect(state.room).toBe('controls');
     expect(state.position).toEqual({ x: 1, y: 3 });
 
+    state = gameReducer(state, { type: 'SET_MUTED', value: false });
     // --- ROOM 3: CONTROLS ---
     // Walk along y=3 to (5,3) adjacent to terminal at (5,2)
     state = gameReducer(state, { type: 'MOVE', direction: 'right' }); // (2,3)

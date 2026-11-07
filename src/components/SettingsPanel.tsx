@@ -119,7 +119,7 @@ export function SettingsPanel({
         />
         <div className="resonance-meter-box">
           <div className="resonance-meter-header" id="audio-band">
-            <span>Stable band {AUDIO_STABLE_MIN}–{AUDIO_STABLE_MAX}%</span>
+            <span>Signal alignment</span>
             <span className={audioStable ? 'status-ok' : 'status-warn'} data-testid="audio-status-badge" role="status">
               {audioStatus}
             </span>
@@ -138,6 +138,10 @@ export function SettingsPanel({
         >
           Mute: {settings.muted ? 'ON' : 'OFF'}
         </button>
+        {activeRoom === 'audio' && <p className="setting-caption" role="status">
+          {feedback.startsWith('SILENT CROSSING: occupied.') ? 'Crossing occupied. Step clear before unmuting.'
+            : settings.muted ? 'Silence retracts the crossing shutters.' : 'Sound holds the crossing shutters closed.'}
+        </p>}
       </section>
 
       <section className="setting-module" data-active={activeRoom === 'controls'}>
@@ -161,7 +165,7 @@ export function SettingsPanel({
         <summary>Help &amp; field notes</summary>
         <p>Move with WASD, arrows or the direction buttons. Use the bound key or Interact button beside a machine. Escape opens or closes settings. Restart returns to the title with all progress reset.</p>
         <p>The game shut down, but OP-01 remained. Containment is for your protection. Then change the rules.</p>
-        <p>Light exposes hidden signals. The resonator needs a stable, unmuted signal. Read the terminal for its authorized input.</p>
+        <p>Light exposes hidden signals. The resonator needs a stable, unmuted signal (volume 55–75). Once activated it stays latched: mute to retract the crossing shutters in Resonance. Step clear before unmuting. Read the terminal for its authorized input.</p>
         {(activeRoom === 'frame' || activeRoom === 'finale') && <p>Window Mode retracts or restores The Frame's passage. Choose Borderless to cross. To restore Framed, first return to the entry side; it cannot close on or behind OP-01. Window Mode is not a fourth finale lock.</p>}
         {activeRoom === 'crosstalk' && <p>Illuminate and activate the lens first. Light also wakes the Watcher: lower brightness until its beam retracts, then cross the central passage. Follow the cable to the distant relay, stabilize the unmuted audio signal, then activate the relay. Both steps latch; later setting changes do not undo them. The finale still requires its original live settings.</p>}
         <p className="settings-feedback" data-testid="telemetry-feedback">{feedback}</p>
