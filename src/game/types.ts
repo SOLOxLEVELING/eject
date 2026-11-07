@@ -1,4 +1,6 @@
-export type RoomId = 'display' | 'audio' | 'controls' | 'finale';
+export type RoomId = 'display' | 'audio' | 'controls' | 'frame' | 'finale';
+
+export type WindowMode = 'framed' | 'borderless';
 
 export type BindKey = 'e' | 'f' | 'k';
 
@@ -11,6 +13,7 @@ export type Settings = {
   volume: number;
   muted: boolean;
   interactKey: BindKey;
+  windowMode: WindowMode;
 };
 
 export type Progress = {
@@ -26,7 +29,7 @@ export type Coordinates = {
   y: number;
 };
 
-export type TileKind = 'wall' | 'floor' | 'node' | 'exit';
+export type TileKind = 'wall' | 'floor' | 'node' | 'exit' | 'frame';
 
 export type RoomBlueprint = {
   id: RoomId;
@@ -69,4 +72,5 @@ export type GameAction =
   | { type: 'SET_VOLUME'; value: number }
   | { type: 'SET_MUTED'; value: boolean }
   | { type: 'TOGGLE_MUTE' }
-  | { type: 'SET_INTERACT_KEY'; value: BindKey };
+  | { type: 'SET_INTERACT_KEY'; value: BindKey }
+  | { type: 'SET_WINDOW_MODE'; value: WindowMode };

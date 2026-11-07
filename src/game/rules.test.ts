@@ -50,6 +50,7 @@ const BASE_SETTINGS: Settings = {
   volume: 20,
   muted: true,
   interactKey: 'e',
+  windowMode: 'framed',
 };
 
 const VALID_FINALE_SETTINGS: Settings = {
@@ -57,6 +58,7 @@ const VALID_FINALE_SETTINGS: Settings = {
   volume: 65,
   muted: false,
   interactKey: 'k',
+  windowMode: 'framed',
 };
 
 describe('Stage 1–4 complete game rules', () => {
@@ -72,12 +74,14 @@ describe('Stage 1–4 complete game rules', () => {
         volume: -5,
         muted: true,
         interactKey: 'k',
+        windowMode: 'borderless',
       }),
     ).toEqual({
       brightness: 100,
       volume: 0,
       muted: true,
       interactKey: 'k',
+      windowMode: 'borderless',
     });
   });
 
@@ -321,7 +325,7 @@ describe('Stage 1–4 complete game rules', () => {
     ]);
   });
 
-  it('completes full start-to-win flow across all 4 rooms and resets all state on restart', () => {
+  it('completes full start-to-win flow across all 5 rooms and resets all state on restart', () => {
     let state = gameReducer(createInitialState(), { type: 'START_GAME' });
 
     // --- ROOM 1: DISPLAY ---
@@ -379,14 +383,20 @@ describe('Stage 1–4 complete game rules', () => {
     state = gameReducer(state, { type: 'INTERACT' });
     expect(state.progress.terminalActivated).toBe(true);
 
-    // Walk East to (8,3) -> enters Finale ('finale')
+    // Walk East to (8,3) -> enters The Frame
     state = gameReducer(state, { type: 'MOVE', direction: 'right' }); // (6,3)
     state = gameReducer(state, { type: 'MOVE', direction: 'right' }); // (7,3)
-    state = gameReducer(state, { type: 'MOVE', direction: 'right' }); // (8,3) -> Finale
+    state = gameReducer(state, { type: 'MOVE', direction: 'right' }); // (8,3) -> The Frame
+    expect(state.room).toBe('frame');
+    expect(state.settings.windowMode).toBe('framed');
+    state = gameReducer(state, { type: 'SET_WINDOW_MODE', value: 'borderless' });
+    for (const direction of ['up', 'up', 'right', 'right', 'down', 'down', 'right', 'right', 'down', 'down', 'right', 'right', 'up', 'up', 'right'] as const) {
+      state = gameReducer(state, { type: 'MOVE', direction });
+    }
     expect(state.room).toBe('finale');
     expect(state.position).toEqual({ x: 1, y: 3 });
 
-    // --- ROOM 4: FINALE ---
+    // --- ROOM 5: FINALE ---
     // Walk to (7,3) right next to final exit at (8,3)
     for (let i = 0; i < 6; i++) {
       state = gameReducer(state, { type: 'MOVE', direction: 'right' });

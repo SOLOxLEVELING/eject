@@ -5,6 +5,7 @@ export const DEFAULT_SETTINGS: Settings = {
   volume: 20,
   muted: true,
   interactKey: 'e',
+  windowMode: 'framed',
 };
 
 export const DISPLAY_CHAMBER: RoomBlueprint = {
@@ -73,9 +74,30 @@ export const CONTROLS_CHAMBER: RoomBlueprint = {
   ],
 };
 
+export const FRAME_CHAMBER: RoomBlueprint = {
+  id: 'frame',
+  code: 'SECTOR 04 // WINDOW MODE',
+  title: 'THE FRAME',
+  subtitle: 'THE FRAME IS PART OF THE PRISON.',
+  width: 9,
+  height: 7,
+  spawn: { x: 1, y: 3 },
+  nodePosition: { x: 4, y: 3 }, // The single retractable passage, not an actuator.
+  exitPosition: { x: 8, y: 3 },
+  tiles: [
+    ['wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall'],
+    ['wall', 'floor', 'floor', 'floor', 'wall', 'floor', 'floor', 'floor', 'wall'],
+    ['wall', 'floor', 'wall', 'floor', 'wall', 'floor', 'wall', 'floor', 'wall'],
+    ['wall', 'floor', 'wall', 'floor', 'frame', 'floor', 'wall', 'floor', 'exit'],
+    ['wall', 'floor', 'wall', 'floor', 'wall', 'floor', 'wall', 'floor', 'wall'],
+    ['wall', 'floor', 'floor', 'floor', 'wall', 'floor', 'floor', 'floor', 'wall'],
+    ['wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall'],
+  ],
+};
+
 export const FINALE_CHAMBER: RoomBlueprint = {
   id: 'finale',
-  code: 'SECTOR 04 // SYSTEM EXIT',
+  code: 'SECTOR 05 // SYSTEM EXIT',
   title: 'CONTAINMENT EJECT GATE',
   subtitle:
     'Final interlock requires all three sector flags plus live Brightness ≥ 70%, Volume 55–75% unmuted, and Key K.',
@@ -103,6 +125,7 @@ export const ROOMS: Record<RoomId, RoomBlueprint> = {
   display: DISPLAY_CHAMBER,
   audio: AUDIO_CHAMBER,
   controls: CONTROLS_CHAMBER,
+  frame: FRAME_CHAMBER,
   finale: FINALE_CHAMBER,
 };
 

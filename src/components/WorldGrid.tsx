@@ -6,6 +6,7 @@ import {
   formatBindKey,
   getAudioStatus,
   getFinaleDiagnostics,
+  getTileAt,
   isAdjacent,
   isGlyphVisible,
   isRoomExitUnlocked,
@@ -38,7 +39,7 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
     (chamber.id === 'display' && canActivateGlyph(position, chamber.nodePosition, settings, progress)) ||
     (chamber.id === 'audio' && canActivateResonator(position, chamber.nodePosition, settings, progress)) ||
     (chamber.id === 'controls' && canActivateTerminal(position, chamber.nodePosition, settings, progress));
-  const showInteract = adjacentToNode && chamber.id !== 'finale' && !exitUnlocked;
+  const showInteract = adjacentToNode && chamber.id !== 'finale' && chamber.id !== 'frame' && !exitUnlocked;
 
   // Darkness belongs to the environment; the operator, props and HUD stay readable.
   const veilOpacity = chamber.id === 'display'
@@ -47,7 +48,9 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
 
   let contextualHint = '';
   if (adjacentToNode) {
-    if (exitUnlocked) {
+    if (chamber.id === 'frame') {
+      contextualHint = exitUnlocked ? 'The frame has withdrawn. The passage is clear.' : 'The frame cuts through the passage. Check the world parameters.';
+    } else if (exitUnlocked) {
       contextualHint = 'Linked. The door is open.';
     } else if (chamber.id === 'display') {
       contextualHint = glyphVisible ? 'Optical glyph within reach.' : 'A faint trace. It needs more light.';
@@ -66,12 +69,14 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
     display: progress.glyphActivated ? 'Linked optical glyph' : glyphVisible ? 'Revealed optical glyph' : 'Faint optical socket',
     audio: progress.resonatorActivated ? 'Linked resonator' : `Resonator: ${audioStatus}`,
     controls: progress.terminalActivated ? 'Authorized terminal' : 'Terminal: E revoked, K authorized',
+    frame: 'Retractable containment frame',
     finale: `System gate: ${verifiedCount} of 3 locks aligned`,
   }[chamber.id];
   const nodeCode = {
     display: glyphVisible ? 'SIGNAL FOUND' : 'FAINT TRACE',
     audio: audioStatus,
     controls: 'E: REVOKED',
+    frame: settings.windowMode,
     finale: `${verifiedCount}/3`,
   }[chamber.id];
 
@@ -80,6 +85,7 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
       <div
         className="world-grid"
         role="grid"
+        data-window-mode={chamber.id === 'frame' ? settings.windowMode : undefined}
         aria-label={`${chamber.title} chamber`}
         style={{
           gridTemplateColumns: `repeat(${chamber.width}, minmax(0, 1fr))`,
@@ -88,11 +94,13 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
       >
         {chamber.tiles.map((row, y) => (
           <div key={y} className="world-row" role="row">
-            {row.map((tile, x) => {
+            {row.map((baseTile, x) => {
+              const tile = getTileAt(chamber, { x, y }, settings) ?? baseTile;
+              const isFrame = baseTile === 'frame';
               const isPlayer = position.x === x && position.y === y;
               const locallyLit = chamber.id !== 'display' || isTileLocallyLit(position, { x, y }, settings.brightness);
               const isNode = tile === 'node';
-              const exposedWall = tile === 'wall' && y < chamber.height - 1 && chamber.tiles[y + 1][x] !== 'wall';
+              const exposedWall = tile === 'wall' && y < chamber.height - 1 && getTileAt(chamber, { x, y: y + 1 }, settings) !== 'wall';
               const nodeActivated = isNode && (
                 (chamber.id === 'display' && progress.glyphActivated) ||
                 (chamber.id === 'audio' && progress.resonatorActivated) ||
@@ -108,6 +116,7 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
               const nodeUnstable = isNode && !nodeActivated && !nodeRevealed && !nodeObscured;
               const tileClasses = [
                 'world-tile', `tile-${tile}`,
+                isFrame ? 'tile-frame' : '',
                 isPlayer ? 'tile-player' : '',
                 !locallyLit && tile !== 'wall' && tile !== 'exit' ? 'tile-fogged' : 'tile-lit',
                 nodeObscured ? 'tile-node-obscured' : '',
@@ -117,7 +126,7 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
                 isNode && canInteractNow ? 'tile-node-ready' : '',
                 tile === 'exit' ? exitUnlocked ? 'tile-exit-unlocked' : 'tile-exit-locked' : '',
               ].filter(Boolean).join(' ');
-              const label = isPlayer ? 'Operator OP-01' : isNode ? nodeLabel
+              const label = isPlayer ? 'Operator OP-01' : isFrame ? exitUnlocked ? 'Retracted frame: clear passage' : 'Containment frame: blocked passage' : isNode ? nodeLabel
                 : tile === 'exit' ? exitUnlocked ? 'Open exit' : 'Sealed exit'
                   : tile === 'wall' ? 'Bulkhead wall' : 'Floor';
 
@@ -129,19 +138,27 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
                   className={tileClasses}
                   data-coords={`${x},${y}`}
                   data-tile={tile}
+                  data-frame-state={isFrame ? settings.windowMode : undefined}
                   data-wall-face={exposedWall || undefined}
-                  data-nearby={isNode ? adjacentToNode : tile === 'exit' ? adjacentToExit : undefined}
+                  data-nearby={isNode || isFrame ? adjacentToNode : tile === 'exit' ? adjacentToExit : undefined}
                   data-audio-level={isNode && chamber.id === 'audio' ? audioStatus.toLowerCase().replaceAll(' ', '-') : undefined}
                   data-glyph-state={isNode && chamber.id === 'display' ? nodeActivated ? 'activated' : nodeRevealed ? 'revealed' : 'hidden' : undefined}
                   data-resonator-state={isNode && chamber.id === 'audio' ? nodeActivated ? 'activated' : audioStable ? 'stable' : 'unstable' : undefined}
                   data-terminal-state={isNode && chamber.id === 'controls' ? nodeActivated ? 'activated' : keyAuthorized ? 'authorized' : 'revoked' : undefined}
                   data-exit-state={tile === 'exit' ? exitUnlocked ? 'unlocked' : 'locked' : undefined}
                 >
-                  {tile === 'wall' && <span className="tile-wall-mark" aria-hidden="true" />}
+                  {tile === 'wall' && !isFrame && <span className="tile-wall-mark" aria-hidden="true" />}
                   {tile === 'wall' && x === 3 && y === 0 && (
-                    <span className="wall-inscription" aria-hidden="true">{{ display: 'LIGHT LEAVES A TRACE', audio: 'SEEK A STEADY SIGNAL', controls: 'IDENTITY IS AN INPUT', finale: 'THREE SYSTEMS · ONE EXIT' }[chamber.id]}</span>
+                    <span className="wall-inscription" aria-hidden="true">{{ display: 'LIGHT LEAVES A TRACE', audio: 'SEEK A STEADY SIGNAL', controls: 'IDENTITY IS AN INPUT', frame: 'FRAME', finale: 'THREE SYSTEMS · ONE EXIT' }[chamber.id]}</span>
                   )}
                   {tile === 'floor' && <span className="tile-floor-cross" aria-hidden="true" />}
+                  {isFrame && (
+                    <div className="frame-mechanism" aria-hidden="true">
+                      <span className="frame-rail" />
+                      <span className="frame-beam frame-beam-top" />
+                      <span className="frame-beam frame-beam-bottom" />
+                    </div>
+                  )}
                   {isNode && (
                     <div className={`tile-entity ${nodeObscured ? 'tile-entity-obscured' : nodeUnstable ? 'tile-entity-exit' : 'tile-entity-node'}`} aria-hidden="true">
                       <svg className="room-machine" viewBox="0 0 100 64" focusable="false">
@@ -220,6 +237,7 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
             })}
           </div>
         ))}
+        {chamber.id === 'frame' && <p className="frame-clue" role="note">THE FRAME IS PART OF THE PRISON.</p>}
         <div className="world-luminance-veil" aria-hidden="true" style={{ opacity: veilOpacity }} />
       </div>
 

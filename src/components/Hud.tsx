@@ -12,6 +12,7 @@ const CHAMBER_NAMES = {
   display: 'The Unseen',
   audio: 'Resonance',
   controls: 'Forbidden Key',
+  frame: 'The Frame',
   finale: 'System Exit',
 };
 
@@ -19,11 +20,12 @@ const OBJECTIVES = {
   display: 'Find what the darkness is hiding.',
   audio: 'Bring the silent resonator into balance.',
   controls: 'Find a way for the terminal to accept your input.',
+  frame: 'Find what gives the prison its shape.',
   finale: 'Keep the three systems aligned.',
 };
 
 export function Hud({ chamber, settings, progress, onOpenSettings }: HudProps) {
-  const roomIndex = ['display', 'audio', 'controls', 'finale'].indexOf(chamber.id) + 1;
+  const roomIndex = ['display', 'audio', 'controls', 'frame', 'finale'].indexOf(chamber.id) + 1;
   const exitUnlocked = isRoomExitUnlocked(chamber.id, progress, settings);
   const fault = chamber.id === 'finale'
     ? getFinaleDiagnostics(settings, progress).find((item) => !item.ready)
@@ -32,7 +34,8 @@ export function Hud({ chamber, settings, progress, onOpenSettings }: HudProps) {
   if (exitUnlocked) {
     objective = chamber.id === 'finale'
       ? 'The boundary is open. Leave the system.'
-      : 'Door released. Find the next chamber.';
+      : chamber.id === 'frame' ? 'The frame has withdrawn. Cross the passage.'
+        : 'Door released. Find the next chamber.';
   } else if (fault) {
     const system = { display: 'light', audio: 'resonance', controls: 'authorized input' }[fault.id];
     objective = `Restore the ${system} at the gate.`;
@@ -43,7 +46,7 @@ export function Hud({ chamber, settings, progress, onOpenSettings }: HudProps) {
       <div className="hud-identity">
         <span className="hud-badge">EJECT</span>
         <h1 className="hud-chamber">
-          <span className="hud-progress">{String(roomIndex).padStart(2, '0')} / 04</span>
+          <span className="hud-progress">{String(roomIndex).padStart(2, '0')} / 05</span>
           {CHAMBER_NAMES[chamber.id]}
         </h1>
       </div>

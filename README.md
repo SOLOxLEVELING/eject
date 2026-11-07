@@ -1,7 +1,7 @@
 # EJECT: Settings Are the Dungeon
 
 **Pitch:** *The only way out is to change the rules.*  
-Built for **WolfJam 2026** — a 3–5 minute top-down diagnostic puzzle-adventure trapped inside a corrupted hardware calibration menu, where the system settings panel directly alters the physical rules of each room.
+Built for **WolfJam 2026** — a short top-down diagnostic puzzle-adventure trapped inside a corrupted hardware calibration menu, where the system settings panel directly alters the physical rules of each room.
 
 ---
 
@@ -15,7 +15,9 @@ The game has shut down, but one rogue process—**OP-01**—remains. The contain
    A resonance lock responds to the console's acoustic bus. Switch **Mute: OFF** and tune **Volume** into the `55%–75%` inclusive stable band (`STABLE` on the live meter), stand adjacent to the resonator at `(04, 02)`, and interact to disengage the gate.
 3. **Sector 03 — CONTROLS / KEYBOUND (`KEYBIND AUTHORIZATION BAY`)**  
    The terminal rejects the default `E` key (`E: REVOKED / K: AUTHORIZED`). Rebind **Interact Key Binding** from `E` to `K`, stand adjacent to the terminal at `(05, 02)`, and press `K` (or click **Interact [K]**) to authorize the exit.
-4. **Sector 04 — SYSTEM EXIT (`CONTAINMENT EJECT GATE`)**  
+4. **Sector 04 — THE FRAME / Window Mode**
+   `THE FRAME IS PART OF THE PRISON.` A single containment crossbar blocks the middle passage. The new **Window Mode** setting appears here: **Framed** seals it; **Borderless** mechanically retracts it and releases the exit. This affects only the game's geometry, never browser windows or fullscreen. Restoring Framed is rejected while OP-01 occupies or has crossed the barrier; return to the entry side first. No relocation or additional progress flag is needed.
+5. **Sector 05 — SYSTEM EXIT (`CONTAINMENT EJECT GATE`)**
    A final three-part interlock requires all three completed sector flags **plus** live valid settings (`Brightness >= 70%`, `Volume 55–75%` unmuted, and `Interact Key = K`). Modifying any setting out of range dynamically re-locks the escape gate and highlights the specific unmet prerequisite until restored.
 
 ---
@@ -26,6 +28,7 @@ The game has shut down, but one rogue process—**OP-01**—remains. The contain
 - **Move:** `WASD`, `Arrow Keys`, or the on-screen directional buttons (`← ↑ ↓ →`)
 - **Interact:** Current bound key (`E` initially; `F` or `K` when rebound) or the on-screen **Interact [`Key`]** button
 - **Settings:** `Escape` or the visible **Settings** button opens the overlay; `Escape` or **Resume** closes it and focuses the room. Native sliders/select support pointer and keyboard (`Tab`, `Arrow Keys`, `Enter`/`Space`). Game movement and interaction are blocked while settings are open or a control has keyboard focus.
+- **Window Mode:** Available in The Frame and retained in the finale. Choose Framed / Borderless with pointer or keyboard. It is **not** a fourth finale prerequisite. Rejected closure keeps OP-01 and the setting unchanged, with visible feedback beside the control.
 - **Restart / Help:** **Restart**, **Boot Screen** and the ending's **Play again** return to the title with settings/progress reset. Start launches a fresh, skippable opening. Expand **Help & field notes** inside Settings for controls, story recap and detailed feedback.
 - **Story cues / Ending:** First-chamber controls appear briefly; two later chamber notes are dismissible and never pause movement. The escape scene lasts 1.8 seconds, with **Skip ending** / `Escape` and **Play again** available immediately. Reduced motion shows the completed ending without movement.
 - **World feedback:** OP-01 has an original local SVG silhouette. Exposed bulkheads, recessed floors and sliding door leaves preserve the collision grid. Nearby machines and doors are outlined; the optical signal appears with light, the resonator changes shape for low/high/stable input and shows a mute slash, and the terminal displays its accepted key. State-change and room-entry animations are brief and disabled with reduced motion. Essential walls, props and controls stay readable at minimum brightness.
@@ -38,7 +41,7 @@ The game has shut down, but one rogue process—**OP-01**—remains. The contain
 - **Framework:** React 19 + TypeScript + Vite
 - **Styling:** Plain CSS (custom properties, CSS Grid 9×7 tile matrix, responsive desktop `1280×720` and mobile `390px` layouts)
 - **State & Logic:** Pure TypeScript rule predicates (`src/game/rules.ts`) + deterministic React `useReducer` (`src/game/gameReducer.ts`)
-- **Testing:** Vitest (`src/game/rules.test.ts`)
+- **Testing:** Vitest (`src/game/rules.test.ts`, `src/game/frame.test.ts`) includes full progression, both window modes, exhaustive frame-position closure safety and map reachability.
 - **Zero External Bloat:** No backend, database, router, external game engine, or UI component library.
 
 ---
@@ -62,7 +65,7 @@ npm test -- --run
 npm run test:browser
 ```
 
-The browser smoke uses Chrome's DevTools protocol with no added dependencies. On macOS it finds the standard Chrome installation; elsewhere it uses `google-chrome`. Override with `CHROME_PATH=/path/to/chrome`. Set `SCREENSHOT_DIR=/tmp/eject-smoke` to save desktop, live-settings, finale and mobile evidence. It checks glyph visibility/proximity, resonator states, terminal artwork, sliding doors and reduced-motion art, plus the full opening in real time, first-frame/mid-sequence/keyboard skips, timer cleanup, reduced motion, title resets, full escapes/replays, overlay focus/input isolation, keyboard settings, live gate changes and viewport overflow.
+The browser smoke uses Chrome's DevTools protocol with no added dependencies. On macOS it finds the standard Chrome installation; elsewhere it uses `google-chrome`. Override with `CHROME_PATH=/path/to/chrome`. Set `SCREENSHOT_DIR=/tmp/eject-smoke` to save desktop, live-settings, finale and mobile evidence. It checks The Frame's collision, live retraction, safe rejected closure, entry-side restoration, unchanged browser dimensions/fullscreen and the three-lock finale, plus glyph visibility/proximity, resonator states, terminal artwork, sliding doors and reduced-motion art, plus the full opening in real time, first-frame/mid-sequence/keyboard skips, timer cleanup, reduced motion, title resets, full escapes/replays, overlay focus/input isolation, keyboard settings, live gate changes and viewport overflow.
 
 ---
 

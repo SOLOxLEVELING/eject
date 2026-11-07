@@ -34,6 +34,7 @@ export function sanitizeSettings(settings: Settings): Settings {
     volume: clampPercentage(settings.volume),
     muted: Boolean(settings.muted),
     interactKey: settings.interactKey,
+    windowMode: settings.windowMode,
   };
 }
 
@@ -106,11 +107,16 @@ export function isWithinBounds(
 export function getTileAt(
   room: RoomBlueprint,
   target: Coordinates,
+  settings?: Pick<Settings, 'windowMode'>,
 ): TileKind | null {
   if (!isWithinBounds(room, target)) {
     return null;
   }
-  return room.tiles[target.y]?.[target.x] ?? null;
+  const tile = room.tiles[target.y]?.[target.x] ?? null;
+  if (tile === 'frame') {
+    return settings?.windowMode === 'borderless' ? 'floor' : 'wall';
+  }
+  return tile;
 }
 
 export function getFinaleDiagnostics(
@@ -200,6 +206,9 @@ export function isRoomExitUnlocked(
   if (roomId === 'controls') {
     return progress.terminalActivated;
   }
+  if (roomId === 'frame') {
+    return settings?.windowMode === 'borderless';
+  }
   if (roomId === 'finale') {
     return Boolean(settings && isFinalGateReady(settings, progress));
   }
@@ -212,7 +221,7 @@ export function canMove(
   progress: Progress,
   settings?: Settings,
 ): boolean {
-  const tile = getTileAt(room, target);
+  const tile = getTileAt(room, target, settings);
   if (!tile) {
     return false;
   }

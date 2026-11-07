@@ -6,7 +6,7 @@ import {
   getAudioStatus,
   isGlyphVisible,
 } from '../game/rules';
-import type { BindKey, RoomId, Settings } from '../game/types';
+import type { BindKey, RoomId, Settings, WindowMode } from '../game/types';
 
 type SettingsPanelProps = {
   activeRoom: RoomId;
@@ -19,11 +19,12 @@ type SettingsPanelProps = {
   onVolumeChange: (value: number) => void;
   onToggleMute: () => void;
   onInteractKeyChange: (key: BindKey) => void;
+  onWindowModeChange: (mode: WindowMode) => void;
 };
 
 export function SettingsPanel({
   activeRoom, settings, feedback, onClose, onRestart, onReturnToIntro,
-  onBrightnessChange, onVolumeChange, onToggleMute, onInteractKeyChange,
+  onBrightnessChange, onVolumeChange, onToggleMute, onInteractKeyChange, onWindowModeChange,
 }: SettingsPanelProps) {
   const dialogRef = useRef<HTMLDialogElement | null>(null);
   const audioStatus = getAudioStatus(settings);
@@ -60,6 +61,26 @@ export function SettingsPanel({
       <p id="settings-description" className="settings-intro">
         Movement paused. The chamber changes live. These controls affect only the game.
       </p>
+
+      {(activeRoom === 'frame' || activeRoom === 'finale') && (
+        <section className="setting-module" data-active={activeRoom === 'frame'}>
+          <label htmlFor="window-mode-select" className="setting-label">Window Mode</label>
+          <select
+            id="window-mode-select"
+            className="console-select"
+            value={settings.windowMode}
+            onChange={(event) => onWindowModeChange(event.target.value as WindowMode)}
+            aria-describedby="window-mode-caption window-mode-feedback"
+          >
+            <option value="framed">Framed</option>
+            <option value="borderless">Borderless</option>
+          </select>
+          <p id="window-mode-caption" className="setting-caption">In-game containment geometry only. Never changes your browser window or fullscreen.</p>
+          <p id="window-mode-feedback" className="setting-caption" role="status">
+            {activeRoom === 'frame' ? feedback : 'Only The Frame chamber responds to this parameter. The final gate still uses three systems.'}
+          </p>
+        </section>
+      )}
 
       <section className="setting-module" data-active={activeRoom === 'display'}>
         <div className="setting-top-row">
@@ -141,6 +162,7 @@ export function SettingsPanel({
         <p>Move with WASD, arrows or the direction buttons. Use the bound key or Interact button beside a machine. Escape opens or closes settings. Restart returns to the title with all progress reset.</p>
         <p>The game shut down, but OP-01 remained. Containment is for your protection. Then change the rules.</p>
         <p>Light exposes hidden signals. The resonator needs a stable, unmuted signal. Read the terminal for its authorized input.</p>
+        {(activeRoom === 'frame' || activeRoom === 'finale') && <p>Window Mode retracts or restores The Frame's passage. Choose Borderless to cross. To restore Framed, first return to the entry side; it cannot close on or behind OP-01. Window Mode is not a fourth finale lock.</p>}
         <p className="settings-feedback" data-testid="telemetry-feedback">{feedback}</p>
       </details>
       <footer className="settings-actions">

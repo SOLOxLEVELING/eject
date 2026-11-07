@@ -186,6 +186,7 @@ try {
   for (const k of ['d', 'e', 'k']) await key(k);
   assert.equal(await position(), '2,3');
   await key('Enter'); assert(await modal());
+  assert.equal(await evaluate(`!!document.querySelector('#window-mode-select')`), false);
   await focus('.settings-help summary'); await key('Enter');
   assert(await evaluate(`document.querySelector('.settings-help').open`));
   assert(await evaluate(`document.querySelector('.settings-help').textContent.includes('WASD')`));
@@ -283,7 +284,55 @@ try {
   await key('k'); assert.equal(await exit(), 'unlocked');
   assert.equal(await evaluate(`document.querySelector('.terminal-key').textContent`), 'K');
   await screenshot('02-terminal-authorized');
-  for (let i = 0; i < 3; i++) await key('d'); assert.equal(await room(), 'finale');
+  for (let i = 0; i < 3; i++) await key('d'); assert.equal(await room(), 'frame');
+  assert.equal(await exit(), 'locked');
+  assert(await evaluate(`document.querySelector('.frame-clue').textContent === 'THE FRAME IS PART OF THE PRISON.'`));
+  const browserWindow = await evaluate(`({ width: outerWidth, height: outerHeight })`);
+  for (const k of ['w', 'w', 'd', 'd', 's', 's']) await key(k);
+  assert.equal(await position(), '3,3');
+  await key('d'); assert.equal(await position(), '3,3');
+  await screenshot('03-frame-sealed');
+  await key('Escape'); await focus('#window-mode-select'); await key('b'); await key('Enter');
+  assert.equal(await evaluate(`document.querySelector('[data-frame-state]').dataset.frameState`), 'borderless');
+  assert.equal(await evaluate(`document.querySelector('[data-frame-state]').dataset.tile`), 'floor');
+  assert.equal(await exit(), 'unlocked');
+  assert.equal(await position(), '3,3');
+  await delay(300);
+  assert.notEqual(await evaluate(`getComputedStyle(document.querySelector('.frame-beam-top')).transform`), 'none');
+  await screenshot('03-frame-retracted-live');
+  await key('Escape'); await key('d'); assert.equal(await position(), '4,3');
+  // Reclosing cannot crush OP-01 on the passage or strand them beyond it.
+  for (const expectedPosition of ['4,3', '5,3']) {
+    await key('Escape'); await focus('#window-mode-select'); await key('f'); await key('Enter');
+    assert.equal(await evaluate(`document.querySelector('#window-mode-select').value`), 'borderless');
+    assert(await evaluate(`document.querySelector('#window-mode-feedback').textContent.includes('Return to the entry side')`));
+    assert.equal(await position(), expectedPosition);
+    await screenshot(`03-frame-safe-rejection-${expectedPosition[0]}`);
+    await key('Escape');
+    if (expectedPosition === '4,3') await key('d');
+  }
+  await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  await key('Escape');
+  assert.equal(await evaluate(`document.documentElement.scrollWidth`), 390);
+  assert.equal(await evaluate(`document.querySelector('#window-mode-select').value`), 'borderless');
+  await screenshot('03-frame-mobile-overlay');
+  await key('Escape'); await screenshot('03-frame-mobile-room');
+  await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 720, deviceScaleFactor: 1, mobile: false });
+  await key('a'); await key('a'); assert.equal(await position(), '3,3');
+  await key('Escape'); await focus('#window-mode-select'); await key('f'); await key('Enter');
+  assert.equal(await evaluate(`document.querySelector('[data-frame-state]').dataset.tile`), 'wall');
+  await delay(300);
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.frame-beam-top')).transform`), 'none');
+  await key('Escape'); await screenshot('03-frame-restored'); await key('d'); assert.equal(await position(), '3,3');
+  await key('Escape'); await focus('#window-mode-select'); await key('b'); await key('Enter'); await key('Escape');
+  for (const k of ['d', 'd', 's', 's', 'd', 'd', 'w', 'w', 'd']) await key(k);
+  assert.equal(await room(), 'finale');
+  assert.deepEqual(await evaluate(`({ width: outerWidth, height: outerHeight })`), browserWindow);
+  assert.equal(await evaluate(`!!document.fullscreenElement`), false);
+  await key('Escape'); await focus('#window-mode-select'); await key('f'); await key('Enter');
+  assert.equal(await exit(), 'unlocked');
+  assert.equal(await evaluate(`document.querySelectorAll('.gate-lock').length`), 3);
+  await key('Escape');
   for (let i = 0; i < 6; i++) await key('d');
   for (const [selector, invalid, valid] of [['#brightness-slider', 69, 70], ['#volume-slider', 76, 75]]) {
     await key('Escape'); await range(selector, invalid);
@@ -320,6 +369,7 @@ try {
   await key('Escape'); assert(await modal());
   assert.equal(await evaluate(`document.querySelector('#brightness-slider').value`), '20');
   assert.equal(await evaluate(`document.querySelector('#volume-slider').value`), '20');
+  assert.equal(await evaluate(`!!document.querySelector('#window-mode-select')`), false);
   assert.equal(await evaluate(`document.querySelector('[role="switch"]').getAttribute('aria-checked')`), 'true');
   assert.equal(await evaluate(`document.querySelector('#interact-key-select').value`), 'e');
   await click('[data-testid="hud-restart-btn"]');
@@ -353,7 +403,17 @@ try {
     for (const k of ['d', 'd', 'd', 'e', 'd', 'd', 'd', 'd']) await key(k);
     for (let i = 0; i < 4; i++) await key('d');
     await key('Escape'); await focus('#interact-key-select'); await key('k'); await key('Enter'); await key('Escape');
-    await key('k'); for (let i = 0; i < 10; i++) await key('d');
+    await key('k'); for (let i = 0; i < 3; i++) await key('d');
+    assert.equal(await room(), 'frame');
+    assert.equal(await exit(), 'locked');
+    await key('Escape'); await focus('#window-mode-select'); await key('b'); await key('Enter'); await key('Escape');
+    assert.equal(await evaluate(`document.querySelector('[data-frame-state]').dataset.frameState`), 'borderless');
+    if (await evaluate(`matchMedia('(prefers-reduced-motion: reduce)').matches`)) {
+      assert(await evaluate(`parseFloat(getComputedStyle(document.querySelector('.frame-beam')).transitionDuration) <= 0.001`));
+    }
+    for (const k of ['w', 'w', 'd', 'd', 's', 's', 'd', 'd', 's', 's', 'd', 'd', 'w', 'w', 'd']) await key(k);
+    assert.equal(await room(), 'finale');
+    for (let i = 0; i < 7; i++) await key('d');
   };
   // Second and third escapes cover the instant reduced-motion ending and normal-motion skip.
   await escapeFreshRun();
@@ -388,8 +448,9 @@ try {
   console.log(`PASS: world fills ${(dimensions.worldArea * 100).toFixed(1)}% of 1280×720; no page overflow.`);
   console.log('PASS: button/Escape menu, native Tab containment, slider/select keyboard controls, focus return, no keyboard/pointer leakage.');
   console.log(`PASS: full opening completed in ${openingDuration}ms; first-frame button, mid-sequence Escape, Enter, held-key and reduced-motion paths passed.`);
-  console.log('PASS: cold start → all three puzzles → live-setting finale → escape scene → reset title; three complete escapes, non-blocking chamber notes, menu restart and boot return.');
+  console.log('PASS: cold start → three original puzzles → The Frame → live-setting finale → escape scene → reset title; three complete escapes, non-blocking chamber notes, menu restart and boot return.');
   console.log('PASS: OP-01 artwork, readable walls above brightness veil, glyph threshold/reveal, proximity, opening door leaves, muted/low/high/stable resonator, terminal authorization and reduced-motion art.');
+  console.log('PASS: The Frame collision, live retraction, safe rejection on/beyond passage, restoration from entry side, reduced motion and unchanged browser dimensions/fullscreen; finale retains exactly three locks.');
   console.log('PASS: 390px pointer controls/overlay and no captured browser errors.');
 } finally {
   clearTimeout(watchdog);

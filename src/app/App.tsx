@@ -138,7 +138,7 @@ export function App() {
     const room = getRoomBlueprint(current.room);
     const target = getNextPosition(current.position, direction);
     const allowed = canMove(room, target, current.progress, current.settings);
-    const tile = getTileAt(room, target);
+    const tile = getTileAt(room, target, current.settings);
 
     if (!allowed) {
       playConsoleTone('blocked');
@@ -356,7 +356,11 @@ export function App() {
                   <span className="status-dim">STANDBY</span>
                 </div>
                 <div className="diagram-row">
-                  <span>[SECTOR 04: SYSTEM EXIT]</span>
+                  <span>[SECTOR 04: THE FRAME]</span>
+                  <span className="status-dim">STANDBY</span>
+                </div>
+                <div className="diagram-row">
+                  <span>[SECTOR 05: SYSTEM EXIT]</span>
                   <span className="status-dim">STANDBY</span>
                 </div>
               </div>
@@ -427,6 +431,9 @@ export function App() {
           }}
           onInteractKeyChange={(value) =>
             dispatch({ type: 'SET_INTERACT_KEY', value })
+          }
+          onWindowModeChange={(value) =>
+            dispatch({ type: 'SET_WINDOW_MODE', value })
           }
         />
       )}

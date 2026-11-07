@@ -256,6 +256,20 @@ kbd { font-family: var(--font-mono); font-size: 0.8em; }
 .gate-locks { position: absolute; z-index: 3; top: 8px; display: flex; gap: 4px; }
 .gate-lock { display: grid; place-items: center; width: 16px; height: 14px; background: #191f21; border-bottom: 3px solid var(--accent-orange); color: var(--ink-paper); font: 8px var(--font-mono); }
 .gate-lock[data-ready='true'] { border-color: var(--accent-sage); }
+/* The retractable crossbar is geometry in the game, never a browser frame. */
+.tile-frame { z-index: 2; background: #1b2225; border: 0; box-shadow: none; }
+.tile-frame::before, .tile-frame::after { display: none; }
+.frame-mechanism { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.frame-rail { position: absolute; inset: 0 8%; border-left: 4px solid #64736d; border-right: 4px solid #64736d; }
+.frame-beam { position: absolute; left: 12%; right: 12%; height: 50%; background: #394340; border: 3px solid var(--accent-orange); transition: transform 240ms ease-out; }
+.frame-beam::after { content: ''; position: absolute; top: 35%; left: 20%; right: 20%; height: 5px; background: var(--accent-orange); }
+.frame-beam-top { top: 0; }
+.frame-beam-bottom { bottom: 0; }
+[data-frame-state='borderless'] .frame-beam { border-color: var(--accent-sage); }
+[data-frame-state='borderless'] .frame-beam-top { transform: translateY(-90%); }
+[data-frame-state='borderless'] .frame-beam-bottom { transform: translateY(90%); }
+.tile-frame[data-nearby='true'] .frame-rail { border-color: var(--ink-paper); }
+.frame-clue { position: absolute; z-index: 3; left: 50%; bottom: 3%; transform: translateX(-50%); margin: 0; padding: 8px 14px; width: max-content; max-width: 85%; background: #242b2e; color: var(--ink-paper); font: 0.8rem/1.4 var(--font-mono); text-align: center; pointer-events: none; }
 @keyframes chamber-enter { from { opacity: 0.65; transform: translateX(5px); } to { opacity: 1; transform: none; } }
 @keyframes operator-step { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
 @keyframes signal-reveal { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
@@ -422,6 +436,9 @@ kbd { font-family: var(--font-mono); font-size: 0.8em; }
   .operator { width: 30px; height: 42px; }
   .tile-player .tile-floor-cross { width: 30px; }
   .room-machine { width: 42px; height: 40px; }
+  .frame-clue { font-size: 0.6rem; padding: 6px; }
+  .frame-rail { border-width: 2px; }
+  .frame-beam { border-width: 2px; }
   .door-frame { width: 30px; height: 40px; border-width: 3px; }
   .gate-lock { width: 7px; height: 6px; }
   .gate-lock span { display: none; }
@@ -457,7 +474,7 @@ kbd { font-family: var(--font-mono); font-size: 0.8em; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .opening-world, .opening-world .world-grid, .door-leaf { transition: none; }
+  .opening-world, .opening-world .world-grid, .door-leaf, .frame-beam { transition: none; }
   .world-grid, .tile-entity-player .operator, .room-machine, .optical-signal, .resonator-ring, .tile-exit .entity-code { animation: none !important; }
   .opening-world .world-grid { transform: none; }
   .opening-sequence .tile-entity-player, .opening-sequence .opening-subtitle, .escape-operator { animation: none !important; }

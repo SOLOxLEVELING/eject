@@ -95,9 +95,17 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
       const room = getRoomBlueprint(state.room);
       const target = getNextPosition(state.position, action.direction);
-      const targetTile = getTileAt(room, target);
+      const targetTile = getTileAt(room, target, state.settings);
 
       if (!canMove(room, target, state.progress, state.settings)) {
+        if (state.room === 'frame') {
+          return {
+            ...state,
+            feedback: room.tiles[target.y]?.[target.x] === 'frame' || targetTile === 'exit'
+              ? 'The frame seals the passage. THE FRAME IS PART OF THE PRISON.'
+              : 'Movement blocked by a bulkhead.',
+          };
+        }
         if (targetTile === 'exit') {
           if (state.room === 'display') {
             return {
@@ -216,6 +224,16 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         }
 
         if (state.room === 'controls') {
+          const nextRoom = ROOMS.frame;
+          return {
+            ...state,
+            room: nextRoom.id,
+            position: { ...nextRoom.spawn },
+            feedback: 'THE FRAME IS PART OF THE PRISON. A new world parameter is available in Settings.',
+          };
+        }
+
+        if (state.room === 'frame') {
           const nextRoom = ROOMS.finale;
           const ready = isFinalGateReady(state.settings, state.progress);
           return {
@@ -223,7 +241,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
             room: nextRoom.id,
             position: { ...nextRoom.spawn },
             feedback: ready
-              ? 'SECTOR 03 CLEARED // ENTERED SECTOR 04: ALL THREE INTERLOCKS VERIFIED — WALK TO EXIT (08, 03) TO EJECT.'
+              ? 'FRAME CLEARED // ENTERED SECTOR 05: ALL THREE INTERLOCKS VERIFIED — WALK TO EXIT (08, 03) TO EJECT.'
               : getFinaleSettingFeedback(state.settings, state.progress),
           };
         }
@@ -297,12 +315,16 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         } else if (isAdjacent(target, room.exitPosition)) {
           if (state.progress.terminalActivated) {
             moveFeedback =
-              'BULKHEAD GATE DISENGAGED // STEP RIGHT ONTO (X:08, Y:03) TO ENTER SYSTEM EXIT.';
+              'BULKHEAD GATE DISENGAGED // STEP RIGHT ONTO (X:08, Y:03) TO ENTER THE FRAME.';
           } else {
             moveFeedback =
               'BULKHEAD GATE LOCKED // REBIND INTERACT TO [K] AND AUTHORIZE TERMINAL AT (X:05, Y:02).';
           }
         }
+      } else if (state.room === 'frame') {
+        moveFeedback = state.settings.windowMode === 'borderless'
+          ? 'The frame has retracted. The passage leads to the system exit.'
+          : 'THE FRAME IS PART OF THE PRISON.';
       } else if (state.room === 'finale') {
         const unmet = getUnmetFinaleConditions(state.settings, state.progress);
         if (unmet.length === 0) {
@@ -327,6 +349,13 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       }
 
       const room = getRoomBlueprint(state.room);
+
+      if (state.room === 'frame') {
+        return {
+          ...state,
+          feedback: 'There is no actuator here. The frame responds to Window Mode in Settings.',
+        };
+      }
 
       if (state.room === 'display') {
         if (
@@ -479,6 +508,27 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         feedback: getFinaleSettingFeedback(state.settings, state.progress),
+      };
+    }
+
+    case 'SET_WINDOW_MODE': {
+      if (state.phase !== 'playing' || (state.room !== 'frame' && state.room !== 'finale')) return state;
+      if (action.value !== 'framed' && action.value !== 'borderless') return state;
+      // This one-choke room must stay open while OP-01 occupies or has crossed the frame.
+      if (action.value === 'framed' && state.room === 'frame' && state.position.x >= ROOMS.frame.nodePosition.x) {
+        return {
+          ...state,
+          feedback: 'Frame blocked by OP-01. Return to the entry side before restoring Framed mode. Window Mode remains Borderless.',
+        };
+      }
+      return {
+        ...state,
+        settings: { ...state.settings, windowMode: action.value },
+        feedback: state.room === 'finale'
+          ? 'Window Mode affects only The Frame chamber. The final gate still uses light, resonance and authorized input.'
+          : action.value === 'borderless'
+            ? 'The frame has retracted. The passage and exit are open.'
+            : 'The frame has expanded. The passage is sealed.',
       };
     }
 

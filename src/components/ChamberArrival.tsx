@@ -12,6 +12,7 @@ export function ChamberArrival({ room, bindLabel }: ChamberArrivalProps) {
     display: 'Find a way past the lock.',
     audio: 'Light was only the first constraint.',
     controls: 'The system has heard you. It still refuses your input.',
+    frame: '',
     finale: '',
   }[room];
 
