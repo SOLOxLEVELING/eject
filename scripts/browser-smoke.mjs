@@ -18,7 +18,7 @@ server.stdout.on('data', (data) => { serverOutput += data; });
 server.stderr.on('data', (data) => { serverOutput += data; });
 for (const child of [server, chrome]) child.on('error', (error) => { startupError = error; });
 let ws;
-const watchdog = setTimeout(() => { console.error('Browser smoke timed out.'); process.exitCode = 1; chrome.kill(); server.kill(); ws?.close(); }, 60000);
+const watchdog = setTimeout(() => { console.error('Browser smoke timed out.'); process.exitCode = 1; chrome.kill(); server.kill(); ws?.close(); }, 90000);
 
 try {
   let port;
@@ -58,6 +58,12 @@ try {
     assert(!result.exceptionDetails, JSON.stringify(result.exceptionDetails));
     return result.result.value;
   };
+  const waitFor = async (expression, timeout = 5000) => {
+    const deadline = Date.now() + timeout;
+    while (!(await evaluate(expression)) && Date.now() < deadline) await delay(50);
+    assert(await evaluate(expression), `Timed out: ${expression}`);
+  };
+  const freshRoomSnapshot = () => evaluate(`({ room: document.querySelector('[data-room]')?.dataset.room, position: document.querySelector('.tile-player')?.dataset.coords, glyph: document.querySelector('[data-glyph-state]')?.dataset.glyphState, exit: document.querySelector('[data-exit-state]')?.dataset.exitState })`);
   const focus = (selector) => evaluate(`document.querySelector(${JSON.stringify(selector)}).focus()`);
   const click = async (selector) => {
     const point = await evaluate(`(() => {
@@ -67,10 +73,13 @@ try {
       const r = el.getBoundingClientRect();
       return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
     })()`);
-    assert(point, `Missing control: ${selector}`);
+    if (!point) {
+      await screenshot('failure');
+      assert.fail(`Missing control: ${selector}; phase: ${await evaluate("document.querySelector('[data-phase]')?.dataset.phase")}`);
+    }
     await send('Input.dispatchMouseEvent', { type: 'mousePressed', ...point, button: 'left', clickCount: 1 });
     await send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...point, button: 'left', clickCount: 1 });
-    await delay(25);
+    await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
   };
   const key = async (key, modifiers = 0) => {
     const special = { Escape: 27, Tab: 9, Enter: 13, ' ': 32, ArrowLeft: 37, ArrowUp: 38, ArrowRight: 39, ArrowDown: 40, Home: 36, End: 35 };
@@ -101,13 +110,61 @@ try {
   };
   await send('Runtime.enable');
   await send('Log.enable');
+  await send('Page.enable');
+  await send('Page.addScriptToEvaluateOnNewDocument', { source: `
+    window.__audioContexts = 0;
+    if (window.AudioContext) {
+      const NativeAudioContext = window.AudioContext;
+      window.AudioContext = class extends NativeAudioContext {
+        constructor(...args) { super(...args); window.__audioContexts++; }
+      };
+    }
+  ` });
   await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 720, deviceScaleFactor: 1, mobile: false });
   await send('Page.navigate', { url });
-  for (let i = 0; i < 100 && !(await evaluate(`!!document.querySelector('[data-phase="intro"]')`)); i++) await delay(50);
-  await click('.console-btn-primary');
-  assert.equal(await room(), 'display');
+  await waitFor(`!!document.querySelector('[data-phase="intro"]')`);
+  assert(await evaluate(`document.querySelector('#title-help').hidden`));
+  await click('[aria-controls="title-help"]');
+  assert(!(await evaluate(`document.querySelector('#title-help').hidden`)));
+  await click('[aria-controls="title-help"]');
+  await click('[data-testid="start-btn"]');
+  assert.equal(await evaluate(`document.querySelector('[data-phase]').dataset.phase`), 'cinematic');
+  assert.equal(await evaluate(`document.querySelector('[data-shot]').dataset.shot`), 'shutdown');
+  await screenshot('00-opening-first-frame');
+  await click('[data-testid="skip-intro-btn"]');
+  const skippedSnapshot = await freshRoomSnapshot();
+  assert.deepEqual(skippedSnapshot, { room: 'display', position: '2,3', glyph: 'hidden', exit: 'locked' });
+  assert(!(await modal()));
+  assert.equal(await evaluate(`window.__audioContexts`), 0);
+
+  // Restart returns to a clean title, not directly to a running room.
+  await key('Escape'); await click('[data-testid="hud-restart-btn"]');
+  await waitFor(`!!document.querySelector('[data-phase="intro"]')`);
+  assert.equal(await evaluate(`document.activeElement.dataset.testid`), 'start-btn');
+  // An uncleared timer from the skipped run would now finish the next opening too early.
+  await delay(1200);
+  const openingStarted = Date.now();
+  await click('[data-testid="start-btn"]');
+  await waitFor(`document.querySelector('[data-shot]')?.dataset.shot === 'process'`, 6000);
+  for (const k of ['d', 'w', 'e']) await key(k);
+  await evaluate(`document.querySelector('.dpad-btn').click()`);
   assert.equal(await position(), '2,3');
+  assert(!(await modal()));
+  await focus('.dpad-btn');
+  assert(!(await evaluate(`document.querySelector('.opening-world').contains(document.activeElement)`)));
+  await focus('[data-testid="skip-intro-btn"]');
+  await waitFor(`document.querySelector('[data-shot]')?.dataset.shot === 'containment'`, 6500);
+  assert.equal(await evaluate(`document.querySelector('[data-door-locked]').dataset.doorLocked`), 'true');
+  await screenshot('00-opening-containment');
+  await waitFor(`document.querySelector('[data-shot]')?.dataset.shot === 'rules'`, 7500);
+  await screenshot('00-opening-rules');
+  await waitFor(`!!document.querySelector('[data-phase="playing"]')`, 8500);
+  const openingDuration = Date.now() - openingStarted;
+  assert(openingDuration >= 21500 && openingDuration < 25000, `Opening took ${openingDuration}ms`);
+  assert.deepEqual(await freshRoomSnapshot(), skippedSnapshot);
+  assert.equal(await evaluate(`window.__audioContexts`), 0);
   assert.equal(await evaluate(`document.activeElement.className`), 'game-world');
+  assert(await evaluate(`document.querySelector('[data-testid="chamber-arrival"]').textContent.includes('WASD / Arrows')`));
   const dimensions = await evaluate(`(() => { const r = document.querySelector('.world-grid').getBoundingClientRect(); return { width: innerWidth, height: innerHeight, documentWidth: document.documentElement.scrollWidth, documentHeight: document.documentElement.scrollHeight, worldArea: r.width * r.height / (innerWidth * innerHeight) }; })()`);
   assert.equal(dimensions.documentWidth, 1280);
   assert.equal(dimensions.documentHeight, 720);
@@ -115,12 +172,18 @@ try {
   assert(!(await modal()));
   assert.equal(await evaluate(`document.querySelectorAll('.coord-ruler-top, .viewport-legend, .hud-telemetry, .telemetry-log, .finale-diag-card').length`), 0);
   await screenshot('01-cold-start');
+  await click('[aria-label="Dismiss chamber note"]');
+  assert(!(await evaluate(`!!document.querySelector('[data-testid="chamber-arrival"]')`)));
 
   // Focused HUD/button keys must not reach the world, including descendant targets.
   await focus('[data-testid="settings-open-btn"]');
   for (const k of ['d', 'e', 'k']) await key(k);
   assert.equal(await position(), '2,3');
   await key('Enter'); assert(await modal());
+  await focus('.settings-help summary'); await key('Enter');
+  assert(await evaluate(`document.querySelector('.settings-help').open`));
+  assert(await evaluate(`document.querySelector('.settings-help').textContent.includes('WASD')`));
+  await key('Enter');
   for (let i = 0; i < 15; i++) {
     await key('Tab', i > 9 ? 8 : 0);
     // Native Tab may visit browser chrome (BODY), but never the inert game controls.
@@ -162,8 +225,9 @@ try {
   await click('[data-testid="onscreen-interact-btn"]'); assert.equal(await exit(), 'unlocked');
   for (const k of ['s', 'd', 'd', 's', 'd']) await key(k);
   assert.equal(await room(), 'audio');
-
+  assert(await evaluate(`document.querySelector('[data-testid="chamber-arrival"]').textContent.includes('Light was only the first constraint.')`));
   for (let i = 0; i < 3; i++) await key('d');
+  assert.equal(await position(), '4,3');
   await key('Escape'); await range('#volume-slider', 55); await key('Escape'); await key('e'); assert.equal(await exit(), 'locked');
   await key('Escape'); await click('[role="switch"]'); await range('#volume-slider', 54); await key('Escape'); await key('e'); assert.equal(await exit(), 'locked');
   await key('Escape'); await range('#volume-slider', 55);
@@ -171,7 +235,7 @@ try {
   assert.equal(await evaluate(`document.querySelector('#volume-slider').value`), '56');
   await range('#volume-slider', 75); await key('Escape'); await key('e'); assert.equal(await exit(), 'unlocked');
   for (let i = 0; i < 4; i++) await key('d'); assert.equal(await room(), 'controls');
-
+  assert(await evaluate(`document.querySelector('[data-testid="chamber-arrival"]').textContent.includes('The system has heard you.')`));
   for (let i = 0; i < 4; i++) await key('d');
   await key('e'); await key('k'); assert.equal(await exit(), 'locked');
   await key('Escape'); await focus('#interact-key-select');
@@ -198,18 +262,78 @@ try {
   await screenshot('03-finale-live-locks');
   await key('Escape'); await key('d');
   assert(await evaluate(`!!document.querySelector('[data-phase="won"]')`));
-  await click('[data-testid="play-again-btn"]'); assert.equal(await room(), 'display');
+  assert.equal(await evaluate(`document.querySelector('[data-settled]').dataset.settled`), 'false');
+  assert.equal(await evaluate(`document.querySelector('[data-testid="play-again-btn"]').disabled`), false);
+  await screenshot('03-escape-crossing');
+  await waitFor(`document.querySelector('[data-settled]')?.dataset.settled === 'true'`, 2500);
+  await screenshot('03-escape-complete');
+  await click('[data-testid="play-again-btn"]');
+  assert(await evaluate(`!!document.querySelector('[data-phase="intro"]')`));
+
+  // Mid-sequence Escape skips once; it must not also open Settings.
+  await click('[data-testid="start-btn"]');
+  await waitFor(`document.querySelector('[data-shot]')?.dataset.shot === 'process'`, 6000);
   await key('Escape');
+  assert.deepEqual(await freshRoomSnapshot(), skippedSnapshot);
+  assert(!(await modal()));
+  await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', windowsVirtualKeyCode: 27, autoRepeat: true });
+  assert(!(await modal()));
+  await key('Escape'); assert(await modal());
   assert.equal(await evaluate(`document.querySelector('#brightness-slider').value`), '20');
   assert.equal(await evaluate(`document.querySelector('#volume-slider').value`), '20');
   assert.equal(await evaluate(`document.querySelector('[role="switch"]').getAttribute('aria-checked')`), 'true');
   assert.equal(await evaluate(`document.querySelector('#interact-key-select').value`), 'e');
-  await click('[data-testid="hud-restart-btn"]'); assert(!(await modal())); assert.equal(await position(), '2,3');
+  await click('[data-testid="hud-restart-btn"]');
+  assert(!(await modal()));
+  assert(await evaluate(`!!document.querySelector('[data-phase="intro"]')`));
+
+  // Enter on Start must not skip via a held key. Reduced motion removes story movement.
+  await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+  await key('Enter');
+  assert.equal(await evaluate(`document.querySelector('[data-shot]').dataset.shot`), 'shutdown');
+  await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', windowsVirtualKeyCode: 13, text: '\r', autoRepeat: true });
+  assert.equal(await evaluate(`document.querySelector('[data-phase]').dataset.phase`), 'cinematic');
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.opening-world .world-grid')).transform`), 'none');
+  await waitFor(`document.querySelector('[data-shot]')?.dataset.shot === 'process'`, 6000);
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.tile-entity-player')).animationName`), 'none');
+  await screenshot('00-reduced-motion');
+  await key('Enter');
+  assert.deepEqual(await freshRoomSnapshot(), skippedSnapshot);
+  assert(!(await modal()));
   await key('Escape'); await click('.settings-actions button:last-child');
   assert(await evaluate(`!!document.querySelector('[data-phase="intro"]')`));
-  await click('.console-btn-primary');
+  await click('[data-testid="start-btn"]'); await click('[data-testid="skip-intro-btn"]');
 
+  const escapeFreshRun = async () => {
+    await key('Escape'); await range('#brightness-slider', 70); await key('Escape');
+    for (const k of ['d', 'd', 'd', 'w', 'w', 'e', 's', 'd', 'd', 's', 'd']) await key(k);
+    await key('Escape'); await range('#volume-slider', 65); await click('[role="switch"]'); await key('Escape');
+    for (const k of ['d', 'd', 'd', 'e', 'd', 'd', 'd', 'd']) await key(k);
+    for (let i = 0; i < 4; i++) await key('d');
+    await key('Escape'); await focus('#interact-key-select'); await key('k'); await key('Enter'); await key('Escape');
+    await key('k'); for (let i = 0; i < 10; i++) await key('d');
+  };
+  // Second and third escapes cover the instant reduced-motion ending and normal-motion skip.
+  await escapeFreshRun();
+  assert.equal(await evaluate(`document.querySelector('[data-settled]')?.dataset.settled`), 'true');
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.escape-operator')).animationName`), 'none');
+  await click('[data-testid="play-again-btn"]');
+  assert(await evaluate(`!!document.querySelector('[data-phase="intro"]')`));
+
+  await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
+  await click('[data-testid="start-btn"]'); await click('[data-testid="skip-intro-btn"]');
+  await escapeFreshRun();
+  assert.equal(await evaluate(`document.querySelector('[data-settled]')?.dataset.settled`), 'false');
+  await key('Escape');
+  assert.equal(await evaluate(`document.querySelector('[data-settled]')?.dataset.settled`), 'true');
+  assert(!(await modal()));
+  await click('[data-testid="play-again-btn"]');
+
+  await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
   await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  await click('[data-testid="start-btn"]');
+  await screenshot('04-mobile-opening');
+  await key('Enter');
   assert.equal(await evaluate(`document.documentElement.scrollWidth`), 390);
   await click('[aria-label="Move right"]'); assert.equal(await position(), '3,3');
   await click('[data-testid="settings-open-btn"]'); assert(await modal());
@@ -221,7 +345,8 @@ try {
   assert.deepEqual(errors, []);
   console.log(`PASS: world fills ${(dimensions.worldArea * 100).toFixed(1)}% of 1280×720; no page overflow.`);
   console.log('PASS: button/Escape menu, native Tab containment, slider/select keyboard controls, focus return, no keyboard/pointer leakage.');
-  console.log('PASS: cold start → all three puzzles → live-setting finale → win → replay, menu restart and boot return.');
+  console.log(`PASS: full opening completed in ${openingDuration}ms; first-frame button, mid-sequence Escape, Enter, held-key and reduced-motion paths passed.`);
+  console.log('PASS: cold start → all three puzzles → live-setting finale → escape scene → reset title; three complete escapes, non-blocking chamber notes, menu restart and boot return.');
   console.log('PASS: 390px pointer controls/overlay and no captured browser errors.');
 } finally {
   clearTimeout(watchdog);

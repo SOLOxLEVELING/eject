@@ -137,8 +137,9 @@ export function SettingsPanel({
       </section>
 
       <details className="settings-help">
-        <summary>Controls &amp; field notes</summary>
-        <p>Move with WASD, arrows or the direction buttons. Use the bound key or Interact button beside a machine. Escape opens or closes settings.</p>
+        <summary>Help &amp; field notes</summary>
+        <p>Move with WASD, arrows or the direction buttons. Use the bound key or Interact button beside a machine. Escape opens or closes settings. Restart returns to the title with all progress reset.</p>
+        <p>The game shut down, but OP-01 remained. Containment is for your protection. Then change the rules.</p>
         <p>Light exposes hidden signals. The resonator needs a stable, unmuted signal. Read the terminal for its authorized input.</p>
         <p className="settings-feedback" data-testid="telemetry-feedback">{feedback}</p>
       </details>

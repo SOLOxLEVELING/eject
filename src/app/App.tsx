@@ -1,4 +1,7 @@
-import { useEffect, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { ChamberArrival } from '../components/ChamberArrival';
+import { EscapeScene } from '../components/EscapeScene';
+import { OpeningSequence } from '../components/OpeningSequence';
 import { Hud } from '../components/Hud';
 import { SettingsPanel } from '../components/SettingsPanel';
 import { WorldGrid } from '../components/WorldGrid';
@@ -42,9 +45,17 @@ export function App() {
   const [showManual, setShowManual] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const sceneRef = useRef<HTMLElement | null>(null);
+  const titleStartRef = useRef<HTMLButtonElement | null>(null);
+  const startPlaying = useCallback(() => dispatch({ type: 'START_GAME' }), []);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const stateRef = useRef(state);
   stateRef.current = state;
+
+  function returnToTitle() {
+    setSettingsOpen(false);
+    setShowManual(false);
+    dispatch({ type: 'RESTART_GAME' });
+  }
 
   function playConsoleTone(kind: ToneKind, customSettings?: Settings) {
     const activeSettings = customSettings ?? stateRef.current.settings;
@@ -220,10 +231,16 @@ export function App() {
   }, [state.phase, settingsOpen]);
 
   useEffect(() => {
-    if (state.phase === 'playing' && !settingsOpen) {
+    if (state.phase === 'intro') {
+      titleStartRef.current?.focus({ preventScroll: true });
+    } else if (state.phase === 'playing' && !settingsOpen) {
       sceneRef.current?.focus({ preventScroll: true });
     }
   }, [state.phase, settingsOpen]);
+
+  if (state.phase === 'cinematic') {
+    return <OpeningSequence state={state} onComplete={startPlaying} />;
+  }
 
   if (state.phase === 'intro') {
     return (
@@ -243,16 +260,17 @@ export function App() {
               <p className="boot-subtitle">Settings Are the Dungeon</p>
 
               <p className="boot-narrative">
-                Trapped inside a faulted diagnostic build, standard exits refuse
-                to open—recalibrate the system settings to physically alter each
-                chamber and force an escape.
+                The game has shut down. You haven&apos;t. Find a way out of the
+                system that wants to keep you safe.
               </p>
 
               <div className="boot-cta-row">
                 <button
                   type="button"
                   className="console-btn console-btn-primary"
-                  onClick={() => dispatch({ type: 'START_GAME' })}
+                  ref={titleStartRef}
+                  onClick={() => dispatch({ type: 'START_INTRO' })}
+                  data-testid="start-btn"
                 >
                   Start Session
                 </button>
@@ -260,13 +278,17 @@ export function App() {
                   type="button"
                   className="console-btn console-btn-secondary"
                   aria-expanded={showManual}
+                  aria-controls="title-help"
                   onClick={() => setShowManual((prev) => !prev)}
                 >
                   {showManual ? 'Hide How to Play' : 'How to Play'}
                 </button>
               </div>
 
+              <p className="settings-intro">22-second opening. Skip any time with Escape, Enter or Skip intro.</p>
               <section
+                id="title-help"
+                hidden={!showManual}
                 className={`boot-manual-card ${showManual ? 'is-emphasized' : ''}`}
                 aria-label="How to Play Controls"
               >
@@ -346,101 +368,7 @@ export function App() {
   }
 
   if (state.phase === 'won') {
-    return (
-      <div className="console-root" data-phase="won">
-        <main className="boot-screen won-screen" aria-labelledby="won-title">
-          <div className="boot-top-strip">
-            <span className="boot-tag">FIRMWARE 04.9 // CONTAINMENT OVERRIDE COMPLETE</span>
-            <span className="boot-status boot-status-ok">SYSTEM EJECTED</span>
-          </div>
-
-          <div className="boot-layout">
-            <section className="boot-primary">
-              <p className="boot-kicker">ESCAPE SEQUENCE VERIFIED</p>
-              <h1 id="won-title" className="boot-title">
-                EJECTED
-              </h1>
-              <p className="boot-subtitle">Containment Architecture Overridden</p>
-
-              <p className="boot-narrative won-narrative">
-                All three diagnostic interlocks held stable across the parameter
-                bus. By turning the system&apos;s own calibration settings against
-                its locks, Operator OP-01 has escaped the corrupted shell.
-              </p>
-
-              <div className="boot-cta-row">
-                <button
-                  type="button"
-                  className="console-btn console-btn-primary"
-                  onClick={() => dispatch({ type: 'RESTART_GAME' })}
-                  data-testid="play-again-btn"
-                >
-                  Play Again
-                </button>
-                <button
-                  type="button"
-                  className="console-btn console-btn-secondary"
-                  onClick={() => dispatch({ type: 'RETURN_TO_INTRO' })}
-                  data-testid="return-boot-btn"
-                >
-                  Boot Screen
-                </button>
-              </div>
-            </section>
-
-            <aside
-              className="boot-SideRack"
-              aria-label="Final Verified System Registers"
-            >
-              <div className="rack-header">
-                <span className="panel-index">EXIT TELEMETRY // VERIFIED</span>
-                <h2 className="rack-title">FINAL CALIBRATION SNAPSHOT</h2>
-              </div>
-
-              <dl className="rack-register-list">
-                <div className="rack-register">
-                  <dt>01 // DISPLAY LUMINANCE</dt>
-                  <dd className="status-ok">
-                    {state.settings.brightness}% (GLYPH LINKED)
-                  </dd>
-                </div>
-                <div className="rack-register">
-                  <dt>02 // ACOUSTIC RESONANCE</dt>
-                  <dd className="status-ok">
-                    {state.settings.volume}% [UNMUTED — STABLE]
-                  </dd>
-                </div>
-                <div className="rack-register">
-                  <dt>03 // TERMINAL ACTUATOR</dt>
-                  <dd className="status-ok">
-                    KEY [{bindLabel}] AUTHORIZED
-                  </dd>
-                </div>
-              </dl>
-
-              <div className="rack-diagram" aria-hidden="true">
-                <div className="diagram-row">
-                  <span>[SECTOR 01: DISPLAY]</span>
-                  <span className="status-ok">CLEARED</span>
-                </div>
-                <div className="rack-row diagram-row">
-                  <span>[SECTOR 02: AUDIO]</span>
-                  <span className="status-ok">CLEARED</span>
-                </div>
-                <div className="diagram-row">
-                  <span>[SECTOR 03: CONTROLS]</span>
-                  <span className="status-ok">CLEARED</span>
-                </div>
-                <div className="diagram-row">
-                  <span>[SECTOR 04: SYSTEM EXIT]</span>
-                  <span className="status-ok">EJECTED</span>
-                </div>
-              </div>
-            </aside>
-          </div>
-        </main>
-      </div>
-    );
+    return <EscapeScene onReplay={returnToTitle} />;
   }
 
   return (
@@ -470,6 +398,7 @@ export function App() {
           onMove={triggerMove}
           onInteract={triggerInteract}
         />
+        <ChamberArrival key={state.room} room={state.room} bindLabel={bindLabel} />
       </main>
 
       {settingsOpen && (
@@ -478,15 +407,8 @@ export function App() {
           settings={state.settings}
           feedback={state.feedback}
           onClose={() => setSettingsOpen(false)}
-          onRestart={() => {
-            setSettingsOpen(false);
-            dispatch({ type: 'RESTART_GAME' });
-          }}
-          onReturnToIntro={() => {
-            setSettingsOpen(false);
-            setShowManual(false);
-            dispatch({ type: 'RETURN_TO_INTRO' });
-          }}
+          onRestart={returnToTitle}
+          onReturnToIntro={returnToTitle}
           onBrightnessChange={(value) =>
             dispatch({ type: 'SET_BRIGHTNESS', value })
           }

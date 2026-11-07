@@ -3,7 +3,6 @@ import { createInitialState, gameReducer } from './gameReducer';
 import {
   AUDIO_CHAMBER,
   CONTROLS_CHAMBER,
-   DEFAULT_SETTINGS,
   DISPLAY_CHAMBER,
   FINALE_CHAMBER,
 } from './levels';
@@ -407,10 +406,42 @@ describe('Stage 1–4 complete game rules', () => {
 
     // --- FULL RESTART ---
     state = gameReducer(state, { type: 'RESTART_GAME' });
-    expect(state.phase).toBe('playing');
-    expect(state.room).toBe('display');
-    expect(state.position).toEqual(DISPLAY_CHAMBER.spawn);
-    expect(state.settings).toEqual(DEFAULT_SETTINGS);
-    expect(state.progress).toEqual(LOCKED_PROGRESS);
+    expect(state).toEqual(createInitialState());
+  });
+
+  it('keeps cinematic gameplay inert and gives skipped and completed openings the same initial room', () => {
+    const title = createInitialState();
+    const opening = gameReducer(title, { type: 'START_INTRO' });
+    expect(opening).toEqual({ ...title, phase: 'cinematic' });
+    expect(gameReducer(opening, { type: 'MOVE', direction: 'right' })).toBe(opening);
+    expect(gameReducer(opening, { type: 'INTERACT' })).toBe(opening);
+    expect(gameReducer(opening, { type: 'REJECT_UNBOUND_KEY', key: 'k' })).toBe(opening);
+    expect(gameReducer(opening, { type: 'START_GAME' })).toEqual(
+      gameReducer(title, { type: 'START_GAME' }),
+    );
+  });
+
+  it('ignores duplicate story callbacks after play or escape', () => {
+    const playing = gameReducer(createInitialState(), { type: 'START_GAME' });
+    const moved = gameReducer(playing, { type: 'MOVE', direction: 'right' });
+    expect(gameReducer(moved, { type: 'START_GAME' })).toBe(moved);
+    expect(gameReducer(moved, { type: 'START_INTRO' })).toBe(moved);
+    const won = { ...moved, phase: 'won' as const };
+    expect(gameReducer(won, { type: 'START_GAME' })).toBe(won);
+    expect(gameReducer(won, { type: 'START_INTRO' })).toBe(won);
+  });
+
+  it('restarts every phase at a clean title and can begin a fresh opening', () => {
+    for (const phase of ['intro', 'cinematic', 'playing', 'won'] as const) {
+      const dirtyState = {
+        ...createInitialState(), phase, room: 'finale' as const,
+        settings: { ...VALID_FINALE_SETTINGS },
+        progress: { ...ALL_FLAGS_COMPLETE }, position: { x: 7, y: 3 },
+      };
+      const reset = gameReducer(dirtyState, { type: 'RESTART_GAME' });
+      expect(reset).toEqual(createInitialState());
+      expect(gameReducer(dirtyState, { type: 'RETURN_TO_INTRO' })).toEqual(reset);
+      expect(gameReducer(reset, { type: 'START_INTRO' })).toEqual({ ...reset, phase: 'cinematic' });
+    }
   });
 });

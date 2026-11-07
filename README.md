@@ -7,7 +7,7 @@ Built for **WolfJam 2026** — a 3–5 minute top-down diagnostic puzzle-adventu
 
 ## Concept & Gameplay Arc
 
-Operator **OP-01** is locked inside a faulted firmware build (`REV 04.9`). Standard traversal cannot open the containment gates. Instead, open the live **System Settings** overlay with **Escape** or the **Settings** button to rewire the dungeon environment in real time. The chamber fills the play screen; settings pause movement without pausing visual updates:
+The game has shut down, but one rogue process—**OP-01**—remains. The containment system calls its prison protection. Standard traversal cannot open its gates. Instead, open the live **System Settings** overlay with **Escape** or the **Settings** button to rewire the dungeon environment in real time. The chamber fills the play screen; settings pause movement without pausing visual updates:
 
 1. **Sector 01 — DISPLAY / THE UNSEEN (`OPTICAL CALIBRATION BAY`)**  
    The chamber starts at `20%` brightness in low-gain fog. Moving reveals local surroundings, while raising **Brightness** to `>= 70%` reveals a hidden optical glyph at `(06, 01)`. Stand adjacent to the glyph and press **Interact** (`E` initially) to unlock the sector exit.
@@ -22,10 +22,12 @@ Operator **OP-01** is locked inside a faulted firmware build (`REV 04.9`). Stand
 
 ## Controls & Accessibility
 
+- **Opening:** Start begins a silent, 22-second in-engine sequence. **Skip intro**, `Escape` or `Enter` enters the same fresh first chamber immediately. Reduced motion removes camera/glitch/door movement while preserving readable story beats.
 - **Move:** `WASD`, `Arrow Keys`, or the on-screen directional buttons (`← ↑ ↓ →`)
 - **Interact:** Current bound key (`E` initially; `F` or `K` when rebound) or the on-screen **Interact [`Key`]** button
 - **Settings:** `Escape` or the visible **Settings** button opens the overlay; `Escape` or **Resume** closes it and focuses the room. Native sliders/select support pointer and keyboard (`Tab`, `Arrow Keys`, `Enter`/`Space`). Game movement and interaction are blocked while settings are open or a control has keyboard focus.
-- **Restart / Help:** Inside Settings, use **Restart**, **Boot Screen**, or expand **Controls & field notes** for detailed feedback.
+- **Restart / Help:** **Restart**, **Boot Screen** and the ending's **Play again** return to the title with settings/progress reset. Start launches a fresh, skippable opening. Expand **Help & field notes** inside Settings for controls, story recap and detailed feedback.
+- **Story cues / Ending:** First-chamber controls appear briefly; two later chamber notes are dismissible and never pause movement. The escape scene lasts 1.8 seconds, with **Skip ending** / `Escape` and **Play again** available immediately. Reduced motion shows the completed ending without movement.
 - **Audio & Motion:** Optional procedural Web Audio console tones are strictly user-gesture gated, obey the in-game **Mute** and **Volume** settings (`Muted` by default), and are never required to solve any puzzle. Animations respect `prefers-reduced-motion`.
 
 ---
@@ -59,7 +61,7 @@ npm test -- --run
 npm run test:browser
 ```
 
-The browser smoke uses Chrome's DevTools protocol with no added dependencies. On macOS it finds the standard Chrome installation; elsewhere it uses `google-chrome`. Override with `CHROME_PATH=/path/to/chrome`. Set `SCREENSHOT_DIR=/tmp/eject-smoke` to save desktop, live-settings, finale and mobile evidence. It checks a cold-start escape/replay, overlay focus/input isolation, keyboard settings, live gate changes and viewport overflow.
+The browser smoke uses Chrome's DevTools protocol with no added dependencies. On macOS it finds the standard Chrome installation; elsewhere it uses `google-chrome`. Override with `CHROME_PATH=/path/to/chrome`. Set `SCREENSHOT_DIR=/tmp/eject-smoke` to save desktop, live-settings, finale and mobile evidence. It checks the full opening in real time, first-frame/mid-sequence/keyboard skips, timer cleanup, reduced motion, title resets, full escapes/replays, overlay focus/input isolation, keyboard settings, live gate changes and viewport overflow.
 
 ---
 

@@ -19,7 +19,7 @@ export type Progress = {
   terminalActivated: boolean;
 };
 
-export type Phase = 'intro' | 'playing' | 'won';
+export type Phase = 'intro' | 'cinematic' | 'playing' | 'won';
 
 export type Coordinates = {
   x: number;
@@ -58,6 +58,7 @@ export type GameState = {
 };
 
 export type GameAction =
+  | { type: 'START_INTRO' }
   | { type: 'START_GAME' }
   | { type: 'RESTART_GAME' }
   | { type: 'RETURN_TO_INTRO' }

@@ -36,7 +36,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-v
 }
 kbd { font-family: var(--font-mono); font-size: 0.8em; }
 
-/* Existing title and ending. Cinematic work is deliberately separate. */
+/* Title screen. */
 .console-root {
   min-height: 100vh;
   display: flex;
@@ -148,7 +148,7 @@ kbd { font-family: var(--font-mono); font-size: 0.8em; }
 .hud-objective { margin: 0; color: var(--ink-secondary); font-size: 0.9rem; text-align: center; }
 .settings-shortcut { white-space: nowrap; }
 .settings-shortcut kbd { margin-left: 12px; color: var(--ink-secondary); }
-.game-world { flex: 1; min-height: 0; outline: none; }
+.game-world { position: relative; flex: 1; min-height: 0; outline: none; }
 .game-world:focus-visible { outline: 1px solid var(--line-strong); outline-offset: -4px; }
 .room-scene {
   height: 100%;
@@ -298,6 +298,55 @@ kbd { font-family: var(--font-mono); font-size: 0.8em; }
 .status-ok { color: var(--accent-sage); }
 .status-dim { color: var(--ink-dim); }
 
+/* Story uses the same chamber renderer; no story animation changes puzzle state. */
+.opening-sequence {
+  position: relative;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 360px;
+  overflow: hidden;
+  background: #030506;
+}
+.story-brand { position: absolute; top: 28px; left: 28px; font-family: var(--font-serif); font-size: 1.2rem; }
+.story-skip { position: absolute; z-index: 4; top: 24px; right: 24px; }
+.story-skip kbd { margin-left: 8px; }
+.opening-world { position: absolute; inset: 12vh 24px 10vh; opacity: 0.65; transition: opacity 900ms ease-out; overflow: hidden; }
+.opening-sequence[data-shot='shutdown'] .opening-world { opacity: 0; }
+.opening-world .room-scene { padding: 0; gap: 0; grid-template-rows: minmax(0, 1fr); }
+.opening-world .scene-controls { display: none; }
+.opening-world .world-grid { transform: scale(1.025); transition: transform 6s ease-out; }
+.opening-sequence[data-door-locked='true'] .world-grid { transform: scale(1); }
+.opening-world .tile-exit .entity-code { visibility: hidden; }
+.opening-world .tile-exit::after { content: 'SEALED'; position: absolute; z-index: 2; bottom: 8px; font-family: var(--font-mono); font-size: 0.6rem; color: var(--accent-orange); }
+.opening-world .entity-lock-bar { transition: transform 280ms ease-out, opacity 280ms ease-out; }
+.opening-sequence[data-door-locked='false'] .tile-exit { border-color: var(--accent-sage); background: #172820; }
+.opening-sequence[data-door-locked='false'] .entity-lock-bar { opacity: 0; transform: translateY(-18px); }
+.opening-sequence[data-door-locked='false'] .tile-exit::after { content: 'OPEN'; color: var(--accent-sage); }
+.opening-sequence[data-shot='process'] .tile-entity-player { animation: surviving-process 4s ease-out both; }
+.opening-copy { position: absolute; z-index: 3; left: 7vw; right: 7vw; bottom: 14vh; max-width: 760px; padding: 20px 24px; border-left: 2px solid var(--accent-orange); background: var(--bg-recessed); }
+.opening-register { margin: 0 0 12px; color: var(--ink-secondary); font-family: var(--font-mono); font-size: 0.72rem; }
+.opening-subtitle { margin: 0; font-family: var(--font-mono); font-size: clamp(1.1rem, 2.4vw, 1.8rem); line-height: 1.5; }
+.opening-sequence[data-shot='rules'] .opening-copy { border-color: var(--accent-sage); }
+.opening-sequence[data-shot='rules'] .opening-subtitle { animation: message-interrupt 180ms steps(2, end) both; }
+@keyframes surviving-process { from { transform: translateX(-8px); } to { transform: translateX(0); } }
+@keyframes message-interrupt { 0% { transform: translateX(-3px); } 50% { transform: translateX(3px); } 100% { transform: none; } }
+
+.chamber-arrival { position: absolute; z-index: 3; left: 24px; right: 24px; bottom: 84px; width: fit-content; max-width: calc(100% - 48px); margin: 0 auto; padding: 12px 16px; display: flex; align-items: center; gap: 16px; background: var(--bg-recessed); border-left: 2px solid var(--accent-sage); pointer-events: none; }
+.chamber-arrival p { margin: 0; font-size: 0.9rem; }
+.chamber-arrival .arrival-controls { margin-top: 6px; color: var(--ink-secondary); font-size: 0.78rem; }
+.chamber-arrival button { pointer-events: auto; flex-shrink: 0; }
+
+.escape-screen { position: relative; min-height: 100vh; min-height: 100dvh; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding: 8vh 24px; background: #080c0d; outline: none; }
+.escape-window { position: absolute; inset: 12vh 25vw 45vh; border: 1px solid var(--line-strong); transition: opacity 300ms ease-out; }
+.escape-operator { position: absolute; left: 100%; top: 50%; display: flex; flex-direction: column; align-items: center; gap: 8px; transform: translateX(64px); animation: externalize 1800ms ease-in-out both; }
+.escape-screen[data-settled='true'] .escape-window { opacity: 0.6; }
+.escape-screen[data-settled='true'] .escape-operator { animation: none; }
+.escape-copy { position: relative; text-align: center; }
+.escape-register { margin: 0 0 12px; font-family: var(--font-mono); font-size: 0.8rem; color: var(--accent-sage); }
+.escape-copy h1 { margin: 0; font-family: var(--font-serif); font-size: clamp(3rem, 8vw, 6rem); line-height: 1; }
+.escape-message { margin: 18px 0 28px; font-size: 0.95rem; }
+@keyframes externalize { from { transform: translateX(-64px); } to { transform: translateX(64px); } }
+
 @media (max-width: 980px) {
   .console-root { padding: 8px; justify-content: flex-start; }
   .boot-layout { grid-template-columns: minmax(0, 1fr); }
@@ -332,6 +381,15 @@ kbd { font-family: var(--font-mono); font-size: 0.8em; }
   .context-text { font-size: 0.78rem; }
   .settings-panel { inset: auto auto 12px 12px; width: calc(100% - 24px); max-width: none; max-height: 78dvh; padding: 18px; }
   .boot-top-strip { flex-direction: column; align-items: flex-start; padding: 8px 12px; }
+  .story-brand { top: 20px; left: 16px; }
+  .story-skip { top: 16px; right: 12px; }
+  .story-skip kbd { margin-left: 4px; }
+  .opening-world { inset: 14vh 12px 10vh; }
+  .opening-copy { left: 20px; right: 20px; bottom: 12vh; padding: 16px; }
+  .chamber-arrival { left: 12px; right: 12px; bottom: 114px; max-width: calc(100% - 24px); padding: 10px; gap: 8px; }
+  .chamber-arrival p { font-size: 0.8rem; }
+  .chamber-arrival .arrival-controls { font-size: 0.72rem; }
+  .escape-window { left: 18vw; right: 25vw; }
 }
 
 @media (max-height: 500px) and (min-width: 641px) {
@@ -345,6 +403,9 @@ kbd { font-family: var(--font-mono); font-size: 0.8em; }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .opening-world, .opening-world .world-grid, .opening-world .entity-lock-bar { transition: none; }
+  .opening-world .world-grid { transform: none; }
+  .opening-sequence .tile-entity-player, .opening-sequence .opening-subtitle, .escape-operator { animation: none !important; }
   *, *::before, *::after {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;

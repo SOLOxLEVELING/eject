@@ -48,7 +48,11 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
   const bindLabel = formatBindKey(state.settings.interactKey);
 
   switch (action.type) {
+    case 'START_INTRO':
+      return state.phase === 'intro' ? { ...state, phase: 'cinematic' } : state;
+
     case 'START_GAME':
+      if (state.phase !== 'intro' && state.phase !== 'cinematic') return state;
       return {
         ...state,
         phase: 'playing',
@@ -57,13 +61,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       };
 
     case 'RESTART_GAME':
-      return {
-        ...createInitialState(),
-        phase: 'playing',
-        feedback:
-          'SESSION RESTARTED // ALL SYSTEM REGISTERS AND SECTOR FLAGS RESET TO DEFAULT.',
-      };
-
     case 'RETURN_TO_INTRO':
       return createInitialState();
 
