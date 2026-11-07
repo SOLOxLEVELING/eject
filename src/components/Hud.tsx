@@ -32,7 +32,7 @@ export function Hud({ chamber, settings, progress, onOpenSettings }: HudProps) {
   if (exitUnlocked) {
     objective = chamber.id === 'finale'
       ? 'The boundary is open. Leave the system.'
-      : 'The door is open. Move into the next chamber.';
+      : 'Door released. Find the next chamber.';
   } else if (fault) {
     const system = { display: 'light', audio: 'resonance', controls: 'authorized input' }[fault.id];
     objective = `Restore the ${system} at the gate.`;

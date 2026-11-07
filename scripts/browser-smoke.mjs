@@ -171,6 +171,12 @@ try {
   assert(dimensions.worldArea > 0.7, JSON.stringify(dimensions));
   assert(!(await modal()));
   assert.equal(await evaluate(`document.querySelectorAll('.coord-ruler-top, .viewport-legend, .hud-telemetry, .telemetry-log, .finale-diag-card').length`), 0);
+  assert.equal(await evaluate(`document.querySelector('.tile-player .operator')?.tagName`), 'svg');
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.optical-signal')).opacity`), '0');
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.tile-wall')).zIndex`), '2');
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.world-luminance-veil')).zIndex`), '1');
+  assert(await evaluate(`Array.from(document.querySelectorAll('[data-nearby]')).every(el => el.dataset.nearby === 'false')`));
+  assert(!(await evaluate(`document.querySelector('.hud-bar').textContent.match(/70|55|75|authorized.*K/i)`)));
   await screenshot('01-cold-start');
   await click('[aria-label="Dismiss chamber note"]');
   assert(!(await evaluate(`!!document.querySelector('[data-testid="chamber-arrival"]')`)));
@@ -189,6 +195,11 @@ try {
     // Native Tab may visit browser chrome (BODY), but never the inert game controls.
     assert(await evaluate(`document.activeElement === document.body || document.querySelector('dialog').contains(document.activeElement)`));
   }
+  await range('#brightness-slider', 0);
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.optical-signal')).opacity`), '0');
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.tile-wall')).opacity`), '1');
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.operator')).visibility`), 'visible');
+  await key('Escape'); await screenshot('01-minimum-brightness'); await key('Escape');
   // Real pointer drag, not just a synthetic value update: the glyph changes before closing.
   const slider = await evaluate(`(() => { const r = document.querySelector('#brightness-slider').getBoundingClientRect(); return { x: r.x, y: r.y + r.height / 2, width: r.width }; })()`);
   await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: slider.x + 8, y: slider.y, button: 'left', clickCount: 1 });
@@ -198,15 +209,23 @@ try {
   assert.equal(await evaluate(`document.querySelector('[data-glyph-state]').dataset.glyphState`), 'revealed');
   await focus('#brightness-slider');
   await range('#brightness-slider', 69);
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.optical-signal')).opacity`), '0');
   await key('ArrowRight');
   assert.equal(await evaluate(`document.querySelector('#brightness-slider').value`), '70');
   assert.equal(await evaluate(`document.querySelector('[data-glyph-state]').dataset.glyphState`), 'revealed');
   assert.equal(await position(), '2,3');
+  await delay(550);
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.optical-signal')).opacity`), '1');
   await screenshot('02-live-settings');
   await key('Escape'); assert(!(await modal()));
   assert.equal(await evaluate(`document.activeElement.className`), 'game-world');
+  // Art layers must not change collision or delay player input.
+  await key('w'); assert.equal(await position(), '2,3');
   for (const k of ['d', 'd', 'd', 'w', 'w']) await key(k);
   assert.equal(await position(), '5,1');
+  assert.equal(await evaluate(`document.querySelector('[data-glyph-state]').dataset.nearby`), 'true');
+  assert(await evaluate(`document.querySelector('[data-glyph-state]').classList.contains('tile-node-ready')`));
+  await screenshot('02-glyph-nearby');
 
   // Regression: a bound key on a focused range/button must not activate a nearby glyph.
   await focus('[data-testid="settings-open-btn"]'); await key('e');
@@ -223,20 +242,38 @@ try {
   await range('#brightness-slider', 69); await key('Escape'); await key('e'); assert.equal(await exit(), 'locked');
   await key('Escape'); await range('#brightness-slider', 70); await click('.settings-header button');
   await click('[data-testid="onscreen-interact-btn"]'); assert.equal(await exit(), 'unlocked');
+  await delay(350);
+  assert(await evaluate(`getComputedStyle(document.querySelector('.door-leaf-left')).transform !== 'none'`));
+  await screenshot('02-door-released');
   for (const k of ['s', 'd', 'd', 's', 'd']) await key(k);
   assert.equal(await room(), 'audio');
   assert(await evaluate(`document.querySelector('[data-testid="chamber-arrival"]').textContent.includes('Light was only the first constraint.')`));
   for (let i = 0; i < 3; i++) await key('d');
   assert.equal(await position(), '4,3');
+  assert.equal(await evaluate(`document.querySelector('[data-audio-level]').dataset.audioLevel`), 'muted');
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.resonator-mute')).display`), 'block');
+  await screenshot('02-resonator-muted');
   await key('Escape'); await range('#volume-slider', 55); await key('Escape'); await key('e'); assert.equal(await exit(), 'locked');
-  await key('Escape'); await click('[role="switch"]'); await range('#volume-slider', 54); await key('Escape'); await key('e'); assert.equal(await exit(), 'locked');
+  await key('Escape'); await click('[role="switch"]'); await range('#volume-slider', 54);
+  assert.equal(await evaluate(`document.querySelector('[data-audio-level]').dataset.audioLevel`), 'too-low');
+  await key('Escape'); await key('e'); assert.equal(await exit(), 'locked');
   await key('Escape'); await range('#volume-slider', 55);
   await focus('#volume-slider'); await key('ArrowRight');
   assert.equal(await evaluate(`document.querySelector('#volume-slider').value`), '56');
-  await range('#volume-slider', 75); await key('Escape'); await key('e'); assert.equal(await exit(), 'unlocked');
+  await range('#volume-slider', 76);
+  assert.equal(await evaluate(`document.querySelector('[data-audio-level]').dataset.audioLevel`), 'too-high');
+  await key('Escape'); await key('e'); assert.equal(await exit(), 'locked');
+  await screenshot('02-resonator-overload');
+  await key('Escape'); await range('#volume-slider', 75);
+  assert.equal(await evaluate(`document.querySelector('[data-audio-level]').dataset.audioLevel`), 'stable');
+  assert.equal(await evaluate(`document.querySelector('[data-resonator-state]').dataset.resonatorState`), 'stable');
+  await key('Escape'); await delay(450); await screenshot('02-resonator-stable');
+  await key('e'); assert.equal(await exit(), 'unlocked');
   for (let i = 0; i < 4; i++) await key('d'); assert.equal(await room(), 'controls');
   assert(await evaluate(`document.querySelector('[data-testid="chamber-arrival"]').textContent.includes('The system has heard you.')`));
   for (let i = 0; i < 4; i++) await key('d');
+  assert.equal(await evaluate(`document.querySelector('.terminal-key').textContent`), 'E');
+  await screenshot('02-terminal-revoked');
   await key('e'); await key('k'); assert.equal(await exit(), 'locked');
   await key('Escape'); await focus('#interact-key-select');
   await key('k'); await key('Enter');
@@ -244,6 +281,8 @@ try {
   await key('k'); assert.equal(await exit(), 'locked');
   await key('Escape'); await key('e'); assert.equal(await exit(), 'locked');
   await key('k'); assert.equal(await exit(), 'unlocked');
+  assert.equal(await evaluate(`document.querySelector('.terminal-key').textContent`), 'K');
+  await screenshot('02-terminal-authorized');
   for (let i = 0; i < 3; i++) await key('d'); assert.equal(await room(), 'finale');
   for (let i = 0; i < 6; i++) await key('d');
   for (const [selector, invalid, valid] of [['#brightness-slider', 69, 70], ['#volume-slider', 76, 75]]) {
@@ -300,6 +339,9 @@ try {
   await key('Enter');
   assert.deepEqual(await freshRoomSnapshot(), skippedSnapshot);
   assert(!(await modal()));
+  for (const selector of ['.world-grid', '.operator', '.optical-signal']) {
+    assert.equal(await evaluate(`getComputedStyle(document.querySelector(${JSON.stringify(selector)})).animationName`), 'none');
+  }
   await key('Escape'); await click('.settings-actions button:last-child');
   assert(await evaluate(`!!document.querySelector('[data-phase="intro"]')`));
   await click('[data-testid="start-btn"]'); await click('[data-testid="skip-intro-btn"]');
@@ -347,6 +389,7 @@ try {
   console.log('PASS: button/Escape menu, native Tab containment, slider/select keyboard controls, focus return, no keyboard/pointer leakage.');
   console.log(`PASS: full opening completed in ${openingDuration}ms; first-frame button, mid-sequence Escape, Enter, held-key and reduced-motion paths passed.`);
   console.log('PASS: cold start → all three puzzles → live-setting finale → escape scene → reset title; three complete escapes, non-blocking chamber notes, menu restart and boot return.');
+  console.log('PASS: OP-01 artwork, readable walls above brightness veil, glyph threshold/reveal, proximity, opening door leaves, muted/low/high/stable resonator, terminal authorization and reduced-motion art.');
   console.log('PASS: 390px pointer controls/overlay and no captured browser errors.');
 } finally {
   clearTimeout(watchdog);

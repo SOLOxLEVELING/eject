@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Operator } from './Operator';
 
 type EscapeSceneProps = {
   onReplay: () => void;
@@ -35,7 +36,7 @@ export function EscapeScene({ onReplay }: EscapeSceneProps) {
     <main ref={sceneRef} tabIndex={-1} className="escape-screen" data-phase="won" data-settled={settled} aria-labelledby="escape-title">
       <div className="escape-window" aria-hidden="true">
         <div className="escape-operator">
-          <span className="player-core" />
+          <Operator />
           <span className="entity-code">OP-01</span>
         </div>
       </div>

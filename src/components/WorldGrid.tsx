@@ -1,3 +1,4 @@
+import { Operator } from './Operator';
 import {
   canActivateGlyph,
   canActivateResonator,
@@ -53,7 +54,7 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
     } else if (chamber.id === 'audio') {
       contextualHint = `Resonator: ${audioStatus.toLowerCase()}.`;
     } else if (chamber.id === 'controls') {
-      contextualHint = keyAuthorized ? 'Terminal: authorized input.' : 'Terminal notice: E revoked / K authorized.';
+      contextualHint = keyAuthorized ? 'Terminal: authorized input.' : 'Read the authorization plate on the terminal.';
     } else {
       contextualHint = `${verifiedCount} of 3 locks aligned. Check the world parameters.`;
     }
@@ -68,14 +69,14 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
     finale: `System gate: ${verifiedCount} of 3 locks aligned`,
   }[chamber.id];
   const nodeCode = {
-    display: glyphVisible ? 'GLYPH' : '?',
+    display: glyphVisible ? 'SIGNAL FOUND' : 'FAINT TRACE',
     audio: audioStatus,
     controls: 'E: REVOKED',
     finale: `${verifiedCount}/3`,
   }[chamber.id];
 
   return (
-    <section className="room-scene" aria-label={chamber.title} data-room={chamber.id}>
+    <section key={chamber.id} className="room-scene" aria-label={chamber.title} data-room={chamber.id}>
       <div
         className="world-grid"
         role="grid"
@@ -91,6 +92,7 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
               const isPlayer = position.x === x && position.y === y;
               const locallyLit = chamber.id !== 'display' || isTileLocallyLit(position, { x, y }, settings.brightness);
               const isNode = tile === 'node';
+              const exposedWall = tile === 'wall' && y < chamber.height - 1 && chamber.tiles[y + 1][x] !== 'wall';
               const nodeActivated = isNode && (
                 (chamber.id === 'display' && progress.glyphActivated) ||
                 (chamber.id === 'audio' && progress.resonatorActivated) ||
@@ -127,16 +129,61 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
                   className={tileClasses}
                   data-coords={`${x},${y}`}
                   data-tile={tile}
+                  data-wall-face={exposedWall || undefined}
+                  data-nearby={isNode ? adjacentToNode : tile === 'exit' ? adjacentToExit : undefined}
+                  data-audio-level={isNode && chamber.id === 'audio' ? audioStatus.toLowerCase().replaceAll(' ', '-') : undefined}
                   data-glyph-state={isNode && chamber.id === 'display' ? nodeActivated ? 'activated' : nodeRevealed ? 'revealed' : 'hidden' : undefined}
                   data-resonator-state={isNode && chamber.id === 'audio' ? nodeActivated ? 'activated' : audioStable ? 'stable' : 'unstable' : undefined}
                   data-terminal-state={isNode && chamber.id === 'controls' ? nodeActivated ? 'activated' : keyAuthorized ? 'authorized' : 'revoked' : undefined}
                   data-exit-state={tile === 'exit' ? exitUnlocked ? 'unlocked' : 'locked' : undefined}
                 >
                   {tile === 'wall' && <span className="tile-wall-mark" aria-hidden="true" />}
-                  {tile === 'floor' && !isPlayer && <span className="tile-floor-cross" aria-hidden="true" />}
+                  {tile === 'wall' && x === 3 && y === 0 && (
+                    <span className="wall-inscription" aria-hidden="true">{{ display: 'LIGHT LEAVES A TRACE', audio: 'SEEK A STEADY SIGNAL', controls: 'IDENTITY IS AN INPUT', finale: 'THREE SYSTEMS · ONE EXIT' }[chamber.id]}</span>
+                  )}
+                  {tile === 'floor' && <span className="tile-floor-cross" aria-hidden="true" />}
                   {isNode && (
                     <div className={`tile-entity ${nodeObscured ? 'tile-entity-obscured' : nodeUnstable ? 'tile-entity-exit' : 'tile-entity-node'}`} aria-hidden="true">
-                      <span className={nodeObscured ? 'entity-obscured-dot' : `entity-glyph-diamond ${nodeActivated ? 'diamond-active' : nodeUnstable ? 'diamond-unstable' : ''}`} />
+                      <svg className="room-machine" viewBox="0 0 100 64" focusable="false">
+                        <path className="machine-shadow" d="M9 54h82v8H9z" />
+                        {chamber.id === 'display' && (
+                          <>
+                            <path className="machine-housing" d="M18 53V15l8-8h48l8 8v38z" />
+                            <path className="optical-socket" d="M50 12 72 32 50 52 28 32z" />
+                            <g className="optical-signal">
+                              <path d="m50 18 15 14-15 14-15-14zM50 24v16m-8-8h16" />
+                              <path d="M23 19h8m38 0h8M23 45h8m38 0h8" />
+                            </g>
+                          </>
+                        )}
+                        {chamber.id === 'audio' && (
+                          <>
+                            <path className="machine-housing" d="M18 52h64v7H18zM20 47V17h8v30m44 0V17h8v30" />
+                            <circle className="resonator-ring" cx="50" cy="29" r="22" />
+                            <path className="resonator-wave" d="M32 29h7l5-11 7 22 6-17 5 6h7" />
+                            <path className="resonator-mute" d="m34 13 32 32" />
+                          </>
+                        )}
+                        {chamber.id === 'controls' && (
+                          <>
+                            <path className="machine-housing" d="M20 5h60v37H20zM28 42l-8 14h60l-8-14" />
+                            <path className="terminal-screen" d="M26 11h48v25H26z" />
+                            <text className="terminal-key" x="50" y="30" textAnchor="middle">{keyAuthorized || nodeActivated ? 'K' : 'E'}</text>
+                            <path d="M31 48h38m-40 5h42" />
+                          </>
+                        )}
+                        {chamber.id === 'finale' && (
+                          <>
+                            <path className="machine-housing" d="M12 10h76v45H12z" />
+                            {finaleDiagnostics.map((item, index) => (
+                              <g key={item.id} className="gate-circuit" data-ready={item.ready}>
+                                <path d={`M${28 + index * 22} 16v22m-6-15h12m-12 8h12`} />
+                                <circle cx={28 + index * 22} cy="45" r="3" />
+                              </g>
+                            ))}
+                          </>
+                        )}
+                      </svg>
                       <span className="entity-code">
                         {nodeActivated ? 'LINKED' : nodeCode}
                       </span>
@@ -146,13 +193,17 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
                   {tile === 'exit' && (
                     <>
                       <div className={`tile-entity ${exitUnlocked ? 'tile-entity-exit-open' : 'tile-entity-exit'}`} aria-hidden="true">
-                        <span className={exitUnlocked ? 'entity-open-bar' : 'entity-lock-bar'} />
+                        <div className={`door-frame ${exitUnlocked ? 'entity-open-bar' : 'entity-lock-bar'}`}>
+                          <span className="door-leaf door-leaf-left" />
+                          <span className="door-leaf door-leaf-right" />
+                          <span className="door-threshold" />
+                        </div>
                         <span className="entity-code">{exitUnlocked ? 'OPEN' : 'SEALED'}</span>
                       </div>
                       {chamber.id === 'finale' && (
                         <div className="gate-locks" role="group" aria-label="Live gate locks">
                           {finaleDiagnostics.map((item) => (
-                            <span key={item.id} className="gate-lock" role="img" aria-label={`${item.id}: ${item.detail}`} title={`${item.id}: ${item.detail}`} data-testid={`finale-check-${item.id}`} data-ready={item.ready} />
+                            <span key={item.id} className="gate-lock" role="img" aria-label={`${item.id}: ${item.detail}`} title={`${item.id}: ${item.detail}`} data-testid={`finale-check-${item.id}`} data-ready={item.ready}><span aria-hidden="true">{{ display: 'L', audio: 'A', controls: 'K' }[item.id]}</span></span>
                           ))}
                         </div>
                       )}
@@ -160,7 +211,7 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
                   )}
                   {isPlayer && (
                     <div className="tile-entity tile-entity-player" aria-hidden="true">
-                      <span className="player-core" />
+                      <Operator />
                       <span className="entity-code">OP-01</span>
                     </div>
                   )}

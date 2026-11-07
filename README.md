@@ -28,6 +28,7 @@ The game has shut down, but one rogue process—**OP-01**—remains. The contain
 - **Settings:** `Escape` or the visible **Settings** button opens the overlay; `Escape` or **Resume** closes it and focuses the room. Native sliders/select support pointer and keyboard (`Tab`, `Arrow Keys`, `Enter`/`Space`). Game movement and interaction are blocked while settings are open or a control has keyboard focus.
 - **Restart / Help:** **Restart**, **Boot Screen** and the ending's **Play again** return to the title with settings/progress reset. Start launches a fresh, skippable opening. Expand **Help & field notes** inside Settings for controls, story recap and detailed feedback.
 - **Story cues / Ending:** First-chamber controls appear briefly; two later chamber notes are dismissible and never pause movement. The escape scene lasts 1.8 seconds, with **Skip ending** / `Escape` and **Play again** available immediately. Reduced motion shows the completed ending without movement.
+- **World feedback:** OP-01 has an original local SVG silhouette. Exposed bulkheads, recessed floors and sliding door leaves preserve the collision grid. Nearby machines and doors are outlined; the optical signal appears with light, the resonator changes shape for low/high/stable input and shows a mute slash, and the terminal displays its accepted key. State-change and room-entry animations are brief and disabled with reduced motion. Essential walls, props and controls stay readable at minimum brightness.
 - **Audio & Motion:** Optional procedural Web Audio console tones are strictly user-gesture gated, obey the in-game **Mute** and **Volume** settings (`Muted` by default), and are never required to solve any puzzle. Animations respect `prefers-reduced-motion`.
 
 ---
@@ -61,11 +62,11 @@ npm test -- --run
 npm run test:browser
 ```
 
-The browser smoke uses Chrome's DevTools protocol with no added dependencies. On macOS it finds the standard Chrome installation; elsewhere it uses `google-chrome`. Override with `CHROME_PATH=/path/to/chrome`. Set `SCREENSHOT_DIR=/tmp/eject-smoke` to save desktop, live-settings, finale and mobile evidence. It checks the full opening in real time, first-frame/mid-sequence/keyboard skips, timer cleanup, reduced motion, title resets, full escapes/replays, overlay focus/input isolation, keyboard settings, live gate changes and viewport overflow.
+The browser smoke uses Chrome's DevTools protocol with no added dependencies. On macOS it finds the standard Chrome installation; elsewhere it uses `google-chrome`. Override with `CHROME_PATH=/path/to/chrome`. Set `SCREENSHOT_DIR=/tmp/eject-smoke` to save desktop, live-settings, finale and mobile evidence. It checks glyph visibility/proximity, resonator states, terminal artwork, sliding doors and reduced-motion art, plus the full opening in real time, first-frame/mid-sequence/keyboard skips, timer cleanup, reduced motion, title resets, full escapes/replays, overlay focus/input isolation, keyboard settings, live gate changes and viewport overflow.
 
 ---
 
 ## Asset Rights & AI Assistance Disclosure
 
-- **Assets & Visuals:** All layout code, CSS styling, geometric tile indicators, inline SVG favicon, and optional Web Audio oscillator tones were created specifically for this project. Typography uses local/system font stacks (`Iowan Old Style` / `Palatino` serif, system sans-serif, and `SFMono-Regular` / `Menlo` / `Consolas` monospace) with zero external network dependencies.
+- **Assets & Visuals:** All layout code, CSS styling, OP-01 and machinery SVG artwork, geometric tile indicators, inline SVG favicon, and optional Web Audio oscillator tones were created specifically for this project. Typography uses local/system font stacks (`Iowan Old Style` / `Palatino` serif, system sans-serif, and `SFMono-Regular` / `Menlo` / `Consolas` monospace) with zero external network dependencies.
 - **AI Assistance Disclosure:** Built using an incremental human-supervised agent workflow (planning, staged implementation, automated unit/browser verification, and read-only code review) in accordance with WolfJam 2026 disclosure guidelines.
