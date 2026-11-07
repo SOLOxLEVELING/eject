@@ -274,12 +274,14 @@ try {
   assert.equal(initialCenter, `${2.5 / 9 * 100}% ${3.5 / 7 * 100}%`);
   assert(await evaluate(`Number(document.querySelector('.world-luminance-veil').dataset.darkness) > 0.9`));
   await screenshot('v3-01-brightness-20-same-position');
-  await key('Escape'); await range('#brightness-slider', 80);
+  await range('#patch-brightness', 80);
+  assert(!(await modal()));
   assert.equal(await position(), '2,3');
   assert.equal(await lightCenter(), initialCenter);
   assert(await evaluate(`Number(document.querySelector('.world-luminance-veil').dataset.darkness) < 0.07`));
-  await key('Escape'); await screenshot('v3-02-brightness-80-same-position');
-  await key('Escape'); await range('#brightness-slider', 20); await key('Escape');
+  await screenshot('v3-02-brightness-80-same-position');
+  await range('#patch-brightness', 20);
+  await click('[data-testid="patch-return-btn"]');
   for (const k of ['a', 'w', 'w']) await key(k);
   assert.equal(await position(), '1,1');
   assert.equal(await lightCenter(), `${1.5 / 9 * 100}% ${1.5 / 7 * 100}%`);
@@ -287,12 +289,71 @@ try {
   for (const k of ['s', 's', 'd']) await key(k);
   assert.equal(await lightCenter(), initialCenter);
 
+  // Nonmodal instrument controls: adjust, move, adjust again without opening Settings.
+  await focus('#patch-brightness'); await key('ArrowRight');
+  assert.equal(await evaluate(`document.querySelector('#patch-brightness').value`), '21');
+  for (const k of ['d', 'w', 'e', 'k']) await key(k);
+  assert.equal(await position(), '2,3');
+  await key('Tab');
+  assert.equal(await evaluate(`document.activeElement.id`), 'patch-volume');
+  await key('ArrowRight');
+  assert.equal(await evaluate(`document.querySelector('#patch-volume').value`), '21');
+  assert.equal(await position(), '2,3');
+  await click('[data-testid="patch-return-btn"]'); await key('d');
+  assert.equal(await position(), '3,3');
+  await focus('#patch-brightness'); await key('ArrowLeft');
+  assert.equal(await position(), '3,3');
+  await click('[data-testid="patch-return-btn"]'); await key('a');
+  assert.equal(await position(), '2,3');
+  await range('#patch-volume', 20);
+  await click('.patch-expansion summary');
+  for (const k of ['d', 'w', 'e', 'k']) await key(k);
+  assert.equal(await position(), '2,3');
+  await key('Tab');
+  assert.equal(await evaluate(`document.activeElement.id`), 'patch-key');
+  await key('Tab');
+  assert(!(await evaluate(`document.querySelector('.patch-deck').contains(document.activeElement)`)));
+  await click('.patch-expansion summary');
+  await click('[data-testid="patch-return-btn"]');
+  assert(!(await modal()));
+  await screenshot('v3-3-patch-deck');
+  // Drag the deck's real thumb while the world stays live and the menu stays shut.
+  const patchSlider = await evaluate(`(() => { const r = document.querySelector('#patch-brightness').getBoundingClientRect(); return { x: r.x, y: r.y + r.height / 2, width: r.width }; })()`);
+  await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: patchSlider.x + 8, y: patchSlider.y, button: 'left', clickCount: 1 });
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: patchSlider.x + patchSlider.width - 8, y: patchSlider.y, button: 'left', buttons: 1 });
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: patchSlider.x + patchSlider.width - 8, y: patchSlider.y, button: 'left', clickCount: 1 });
+  await delay(50);
+  assert.equal(await evaluate(`document.querySelector('[data-glyph-state]').dataset.glyphState`), 'revealed');
+  assert.equal(await position(), '2,3');
+  assert(!(await modal()));
+  await range('#patch-brightness', 20); await click('[data-testid="patch-return-btn"]');
+  const unobscuredRoom = await evaluate(`(() => {
+    const world = document.querySelector('.world-grid').getBoundingClientRect();
+    const deck = document.querySelector('.patch-deck').getBoundingClientRect();
+    const overlap = Math.max(0, Math.min(world.right, deck.right) - Math.max(world.left, deck.left)) * Math.max(0, Math.min(world.bottom, deck.bottom) - Math.max(world.top, deck.top));
+    return 1 - overlap / (world.width * world.height);
+  })()`);
+  assert(unobscuredRoom > 0.8, 'Patch Deck must leave over 80% of the room visible');
+  await range('#patch-brightness', 37); await range('#patch-volume', 62); await click('#patch-mute');
+  await click('.patch-expansion summary'); await focus('#patch-key'); await key('f'); await key('Enter');
+  await click('.patch-expansion summary'); await click('[data-testid="patch-return-btn"]');
+
   // Focused HUD/button keys must not reach the world, including descendant targets.
   await focus('[data-testid="settings-open-btn"]');
   for (const k of ['d', 'e', 'k']) await key(k);
   assert.equal(await position(), '2,3');
   await key('Enter'); assert(await modal());
   assert.equal(await evaluate(`!!document.querySelector('#window-mode-select')`), false);
+  assert.equal(await evaluate(`document.querySelector('#brightness-slider').value`), '37');
+  assert.equal(await evaluate(`document.querySelector('#volume-slider').value`), '62');
+  assert.equal(await evaluate(`document.querySelector('[role="switch"]').getAttribute('aria-checked')`), 'false');
+  assert.equal(await evaluate(`document.querySelector('#interact-key-select').value`), 'f');
+  await range('#brightness-slider', 20); await range('#volume-slider', 20); await click('[role="switch"]');
+  await focus('#interact-key-select'); await key('e'); await key('Enter');
+  assert.equal(await evaluate(`document.querySelector('#patch-brightness').value`), '20');
+  assert.equal(await evaluate(`document.querySelector('#patch-volume').value`), '20');
+  assert.equal(await evaluate(`document.querySelector('#patch-mute').getAttribute('aria-pressed')`), 'true');
+  assert.equal(await evaluate(`document.querySelector('#patch-key').value`), 'e');
   await focus('.settings-help summary'); await key('Enter');
   assert(await evaluate(`document.querySelector('.settings-help').open`));
   assert(await evaluate(`document.querySelector('.settings-help').textContent.includes('WASD')`));
@@ -303,6 +364,7 @@ try {
     assert(await evaluate(`document.activeElement === document.body || document.querySelector('dialog').contains(document.activeElement)`));
   }
   await range('#brightness-slider', 0);
+  assert.equal(await evaluate(`document.querySelector('#patch-brightness').value`), '0');
   assert.equal(await evaluate(`getComputedStyle(document.querySelector('.optical-signal')).opacity`), '0');
   assert.equal(await evaluate(`getComputedStyle(document.querySelector('.tile-wall')).opacity`), '1');
   assert.equal(await evaluate(`getComputedStyle(document.querySelector('.operator')).visibility`), 'visible');
@@ -320,6 +382,7 @@ try {
   await key('ArrowRight');
   assert.equal(await evaluate(`document.querySelector('#brightness-slider').value`), '70');
   assert.equal(await evaluate(`document.querySelector('[data-glyph-state]').dataset.glyphState`), 'revealed');
+  assert.equal(await evaluate(`document.querySelector('#patch-brightness').value`), '70');
   assert.equal(await position(), '2,3');
   await delay(550);
   assert.equal(await evaluate(`getComputedStyle(document.querySelector('.optical-signal')).opacity`), '1');
@@ -372,6 +435,8 @@ try {
   await key('Escape'); await key('e'); assert.equal(await exit(), 'locked');
   await screenshot('02-resonator-overload');
   await key('Escape'); await range('#volume-slider', 75);
+  assert.equal(await evaluate(`document.querySelector('#patch-volume').value`), '75');
+  assert.equal(await evaluate(`document.querySelector('#patch-mute').getAttribute('aria-pressed')`), 'false');
   assert.equal(await evaluate(`document.querySelector('[data-audio-level]').dataset.audioLevel`), 'stable');
   assert.equal(await evaluate(`document.querySelector('[data-resonator-state]').dataset.resonatorState`), 'stable');
   await key('Escape'); await delay(450); await screenshot('02-resonator-stable');
@@ -385,6 +450,7 @@ try {
   await key('Escape'); await focus('#interact-key-select');
   await key('k'); await key('Enter');
   assert.equal(await evaluate(`document.querySelector('#interact-key-select').value`), 'k');
+  assert.equal(await evaluate(`document.querySelector('#patch-key').value`), 'k');
   await key('k'); assert.equal(await exit(), 'locked');
   await key('Escape'); await key('e'); assert.equal(await exit(), 'locked');
   await key('k'); assert.equal(await exit(), 'unlocked');
@@ -401,6 +467,7 @@ try {
   await key('Escape'); await focus('#window-mode-select'); await key('b'); await key('Enter');
   assert.equal(await evaluate(`document.querySelector('[data-frame-state]').dataset.frameState`), 'borderless');
   assert.equal(await evaluate(`document.querySelector('[data-frame-state]').dataset.tile`), 'floor');
+  assert.equal(await evaluate(`document.querySelector('#patch-frame').value`), 'borderless');
   assert.equal(await exit(), 'unlocked');
   assert.equal(await position(), '3,3');
   await delay(300);
@@ -514,21 +581,47 @@ try {
   await click('[data-testid="start-btn"]'); await click('[data-testid="skip-intro-btn"]');
 
   const escapeFreshRun = async () => {
-    await key('Escape'); await range('#brightness-slider', 70); await key('Escape');
+    assert.equal(await evaluate(`document.querySelector('#patch-brightness').value`), '20');
+    assert.equal(await evaluate(`document.querySelector('#patch-volume').value`), '20');
+    assert.equal(await evaluate(`document.querySelector('#patch-mute').getAttribute('aria-pressed')`), 'true');
+    assert.equal(await evaluate(`document.querySelector('.patch-expansion').open`), false);
+    await range('#patch-brightness', 70); await click('[data-testid="patch-return-btn"]');
     for (const k of ['d', 'd', 'd', 'w', 'w', 'e', 's', 'd', 'd', 's', 'd']) await key(k);
-    await key('Escape'); await range('#volume-slider', 65); await click('[role="switch"]'); await key('Escape');
+    await range('#patch-volume', 65); await click('#patch-mute');
+    await click('[data-testid="patch-return-btn"]');
     for (const k of ['d', 'd', 'd', 'e', 'd', 'd', 'd', 'd']) await key(k);
     for (let i = 0; i < 4; i++) await key('d');
-    await key('Escape'); await focus('#interact-key-select'); await key('k'); await key('Enter'); await key('Escape');
+    await click('.patch-expansion summary'); await focus('#patch-key'); await key('k'); await key('Enter');
+    await key('k'); assert.equal(await exit(), 'locked');
+    await click('[data-testid="patch-return-btn"]');
+    await key('e'); assert.equal(await exit(), 'locked');
     await key('k'); for (let i = 0; i < 3; i++) await key('d');
     assert.equal(await room(), 'frame');
     assert.equal(await exit(), 'locked');
-    await key('Escape'); await focus('#window-mode-select'); await key('b'); await key('Enter'); await key('Escape');
+    await focus('#patch-frame'); await key('b'); await key('Enter');
     assert.equal(await evaluate(`document.querySelector('[data-frame-state]').dataset.frameState`), 'borderless');
+    await screenshot('v3-3-frame-deck-expanded');
+    assert(await evaluate(`(() => {
+      const w = document.querySelector('.world-grid').getBoundingClientRect();
+      const covered = ['.patch-deck', '.patch-expanded-controls'].reduce((area, selector) => {
+        const r = document.querySelector(selector).getBoundingClientRect();
+        return area + Math.max(0, Math.min(w.right, r.right) - Math.max(w.left, r.left)) * Math.max(0, Math.min(w.bottom, r.bottom) - Math.max(w.top, r.top));
+      }, 0);
+      return 1 - covered / (w.width * w.height) > 0.8;
+    })()`));
+    await click('.patch-expansion summary'); await click('[data-testid="patch-return-btn"]');
+    assert(!(await modal()));
     if (await evaluate(`matchMedia('(prefers-reduced-motion: reduce)').matches`)) {
       assert(await evaluate(`parseFloat(getComputedStyle(document.querySelector('.frame-beam')).transitionDuration) <= 0.001`));
     }
-    for (const k of ['w', 'w', 'd', 'd', 's', 's', 'd', 'd', 's', 's', 'd', 'd', 'w', 'w', 'd']) await key(k);
+    for (const k of ['w', 'w', 'd', 'd', 's', 's', 'd']) await key(k);
+    assert.equal(await position(), '4,3');
+    await click('.patch-expansion summary'); await focus('#patch-frame'); await key('f'); await key('Enter');
+    assert.equal(await evaluate(`document.querySelector('#patch-frame').value`), 'borderless');
+    assert(await evaluate(`document.querySelector('#patch-frame-feedback').textContent.includes('Return to the entry side')`));
+    await screenshot('v3-3-deck-frame-safe-rejection');
+    await click('.patch-expansion summary'); await click('[data-testid="patch-return-btn"]');
+    for (const k of ['d', 's', 's', 'd', 'd', 'w', 'w', 'd']) await key(k);
     await completeCrossTalk();
     assert.equal(await room(), 'finale');
     for (let i = 0; i < 7; i++) await key('d');
@@ -573,6 +666,7 @@ try {
   console.log('PASS: The Frame collision, live retraction, safe rejection on/beyond passage, restoration from entry side, reduced motion and unchanged browser dimensions/fullscreen; finale retains exactly three locks.');
   console.log('PASS: Cross-Talk requires lens before relay, 69/70 reveal, latched optical carrier, stable unmuted relay, separate proximity/focus isolation, powered exit, reduced-motion cable and 390px room.');
   console.log('PASS: player-centered spatial darkness, same-position 20/80 reveal, edge/movement synchronization, readable player and pointer-transparent lighting.');
+  console.log(`PASS: Patch Deck leaves ${(unobscuredRoom * 100).toFixed(1)}% of room unobscured; native Tab, focus isolation, brightness/movement round trip, shared menu state and two complete deck-only settings playthroughs.`);
   console.log('PASS: 390px pointer controls/overlay and no captured browser errors.');
 } finally {
   clearTimeout(watchdog);

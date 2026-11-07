@@ -5,6 +5,7 @@ import { OpeningSequence } from '../components/OpeningSequence';
 import { TitleScreen } from '../components/TitleScreen';
 import { Hud } from '../components/Hud';
 import { SettingsPanel } from '../components/SettingsPanel';
+import { PatchDeck } from '../components/PatchDeck';
 import { WorldGrid } from '../components/WorldGrid';
 import { createInitialState, gameReducer } from '../game/gameReducer';
 import { getRoomBlueprint } from '../game/levels';
@@ -23,7 +24,7 @@ import type { BindKey, Direction, Settings } from '../game/types';
 
 function isInteractiveControl(element: EventTarget | null): boolean {
   return element instanceof Element && Boolean(
-    element.closest('input, select, textarea, button, a[href], [contenteditable]:not([contenteditable="false"])'),
+    element.closest('input, select, textarea, button, summary, a[href], [contenteditable]:not([contenteditable="false"])'),
   );
 }
 
@@ -248,6 +249,23 @@ export function App() {
     return <EscapeScene onReplay={returnToTitle} />;
   }
 
+  const settingControls = {
+    activeRoom: state.room,
+    settings: state.settings,
+    feedback: state.feedback,
+    onBrightnessChange: (value: number) => dispatch({ type: 'SET_BRIGHTNESS', value }),
+    onVolumeChange: (value: number) => {
+      playConsoleTone('probe', { ...state.settings, volume: value });
+      dispatch({ type: 'SET_VOLUME', value });
+    },
+    onToggleMute: () => {
+      playConsoleTone('probe', { ...state.settings, muted: !state.settings.muted });
+      dispatch({ type: 'TOGGLE_MUTE' });
+    },
+    onInteractKeyChange: (value: BindKey) => dispatch({ type: 'SET_INTERACT_KEY', value }),
+    onWindowModeChange: (value: Settings['windowMode']) => dispatch({ type: 'SET_WINDOW_MODE', value }),
+  };
+
   return (
     <div className="game-screen" data-phase="playing">
       <Hud
@@ -278,36 +296,14 @@ export function App() {
         <ChamberArrival key={state.room} room={state.room} bindLabel={bindLabel} />
       </main>
 
+      <PatchDeck {...settingControls} onReturnToWorld={() => sceneRef.current?.focus({ preventScroll: true })} />
+
       {settingsOpen && (
         <SettingsPanel
-          activeRoom={state.room}
-          settings={state.settings}
-          feedback={state.feedback}
+          {...settingControls}
           onClose={() => setSettingsOpen(false)}
           onRestart={returnToTitle}
           onReturnToIntro={returnToTitle}
-          onBrightnessChange={(value) =>
-            dispatch({ type: 'SET_BRIGHTNESS', value })
-          }
-          onVolumeChange={(value) => {
-            const nextSettings = { ...state.settings, volume: value };
-            playConsoleTone('probe', nextSettings);
-            dispatch({ type: 'SET_VOLUME', value });
-          }}
-          onToggleMute={() => {
-            const nextSettings = {
-              ...state.settings,
-              muted: !state.settings.muted,
-            };
-            playConsoleTone('probe', nextSettings);
-            dispatch({ type: 'TOGGLE_MUTE' });
-          }}
-          onInteractKeyChange={(value) =>
-            dispatch({ type: 'SET_INTERACT_KEY', value })
-          }
-          onWindowModeChange={(value) =>
-            dispatch({ type: 'SET_WINDOW_MODE', value })
-          }
         />
       )}
     </div>

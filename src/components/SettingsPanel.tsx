@@ -8,7 +8,7 @@ import {
 } from '../game/rules';
 import type { BindKey, RoomId, Settings, WindowMode } from '../game/types';
 
-type SettingsPanelProps = {
+export type SettingsPanelProps = {
   activeRoom: RoomId;
   settings: Settings;
   feedback: string;
