@@ -1,0 +1,54 @@
+export type RoomId = 'display' | 'audio' | 'controls' | 'finale';
+
+export type BindKey = 'e' | 'f' | 'k';
+
+export type Settings = {
+  brightness: number;
+  volume: number;
+  muted: boolean;
+  interactKey: BindKey;
+};
+
+export type Progress = {
+  glyphActivated: boolean;
+  resonatorActivated: boolean;
+  terminalActivated: boolean;
+};
+
+export type Phase = 'intro' | 'playing' | 'won';
+
+export type Coordinates = {
+  x: number;
+  y: number;
+};
+
+export type TileKind = 'wall' | 'floor' | 'node' | 'exit';
+
+export type RoomBlueprint = {
+  id: RoomId;
+  code: string;
+  title: string;
+  subtitle: string;
+  width: number;
+  height: number;
+  spawn: Coordinates;
+  tiles: readonly (readonly TileKind[])[];
+};
+
+export type GameState = {
+  phase: Phase;
+  room: RoomId;
+  position: Coordinates;
+  settings: Settings;
+  progress: Progress;
+  feedback: string;
+};
+
+export type GameAction =
+  | { type: 'START_GAME' }
+  | { type: 'RETURN_TO_INTRO' }
+  | { type: 'SET_BRIGHTNESS'; value: number }
+  | { type: 'SET_VOLUME'; value: number }
+  | { type: 'SET_MUTED'; value: boolean }
+  | { type: 'TOGGLE_MUTE' }
+  | { type: 'SET_INTERACT_KEY'; value: BindKey };
