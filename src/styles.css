@@ -64,7 +64,7 @@ select:focus-visible {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 16px 24px;
+  padding: 10px 20px;
   background-color: var(--bg-chassis);
   background-image:
     linear-gradient(to right, rgba(231, 225, 212, 0.025) 1px, transparent 1px),
@@ -394,7 +394,6 @@ select:focus-visible {
 .shell-workspace {
   display: grid;
   grid-template-columns: minmax(0, 1.9fr) minmax(320px, 1fr);
-  min-height: 580px;
 }
 
 .panel-header {
@@ -461,21 +460,21 @@ select:focus-visible {
    ========================================================================== */
 
 .viewport-panel {
-  padding: 16px 20px;
+  padding: 12px 18px;
   border-right: 1px solid var(--line-strong);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
 }
 
 .viewport-stage-frame {
   background-color: var(--bg-recessed);
   border: 1px solid var(--line-subtle);
-  padding: 12px 16px;
+  padding: 10px 14px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .coord-ruler-top {
@@ -517,7 +516,7 @@ select:focus-visible {
   position: relative;
   display: grid;
   aspect-ratio: 9 / 7;
-  max-height: 390px;
+  max-height: 360px;
   width: 100%;
   margin: 0 auto;
   gap: 4px;
@@ -570,6 +569,15 @@ select:focus-visible {
   background-color: #101315;
 }
 
+.tile-fogged {
+  background-color: #0a0c0d;
+  border-color: rgba(231, 225, 212, 0.035);
+}
+
+.tile-fogged .tile-floor-cross {
+  opacity: 0.25;
+}
+
 .tile-floor-cross {
   width: 4px;
   height: 4px;
@@ -582,9 +590,39 @@ select:focus-visible {
   border-color: var(--accent-sage);
 }
 
+.tile-node-obscured {
+  background-color: #0b0d0e;
+  border-color: rgba(231, 225, 212, 0.08);
+}
+
+.tile-node-revealed {
+  background-color: rgba(140, 169, 155, 0.14);
+  border-color: var(--accent-sage);
+}
+
+.tile-node-unstable {
+  background-color: rgba(233, 124, 85, 0.1);
+  border-color: rgba(233, 124, 85, 0.55);
+}
+
+.tile-node-ready {
+  border-color: var(--ink-paper);
+  background-color: rgba(140, 169, 155, 0.24);
+}
+
+.tile-node-activated {
+  background-color: rgba(140, 169, 155, 0.22);
+  border-color: var(--accent-sage);
+}
+
 .tile-exit {
   background-color: rgba(233, 124, 85, 0.12);
   border-color: var(--accent-orange);
+}
+
+.tile-exit-unlocked {
+  background-color: rgba(140, 169, 155, 0.18);
+  border-color: var(--accent-sage);
 }
 
 .tile-player {
@@ -616,11 +654,30 @@ select:focus-visible {
   border: 2px solid var(--accent-sage);
 }
 
+.entity-obscured-dot {
+  width: 6px;
+  height: 6px;
+  border: 1px dashed rgba(231, 225, 212, 0.25);
+  transform: rotate(45deg);
+}
+
+.tile-entity-obscured .entity-code {
+  color: var(--ink-muted);
+}
+
 .entity-glyph-diamond {
   width: 10px;
   height: 10px;
   border: 1.5px solid var(--accent-sage);
   transform: rotate(45deg);
+}
+
+.entity-glyph-diamond.diamond-active {
+  background-color: var(--accent-sage);
+}
+
+.entity-glyph-diamond.diamond-unstable {
+  border-color: var(--accent-orange);
 }
 
 .tile-entity-node .entity-code {
@@ -634,8 +691,48 @@ select:focus-visible {
   background-color: rgba(233, 124, 85, 0.3);
 }
 
+.entity-open-bar {
+  width: 12px;
+  height: 8px;
+  border: 1.5px solid var(--accent-sage);
+  background-color: rgba(140, 169, 155, 0.35);
+}
+
 .tile-entity-exit .entity-code {
   color: var(--accent-orange);
+}
+
+.tile-entity-exit-open .entity-code {
+  color: var(--accent-sage);
+}
+
+.viewport-context-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--line-subtle);
+  background-color: var(--bg-panel);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--ink-secondary);
+}
+
+.viewport-context-bar[data-ready='true'] {
+  border-color: var(--accent-sage);
+  background-color: #121816;
+  color: var(--ink-paper);
+}
+
+.context-indicator {
+  width: 7px;
+  height: 7px;
+  background-color: var(--ink-muted);
+  flex-shrink: 0;
+}
+
+.viewport-context-bar[data-ready='true'] .context-indicator {
+  background-color: var(--accent-sage);
 }
 
 .viewport-legend {
@@ -726,33 +823,42 @@ select:focus-visible {
    ========================================================================== */
 
 .settings-panel {
-  padding: 16px 20px;
+  padding: 12px 18px;
   background-color: #131618;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .settings-intro {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   color: var(--ink-secondary);
 }
 
 .settings-stack {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   flex: 1;
 }
 
 .setting-module {
   border: 1px solid var(--line-subtle);
   background-color: var(--bg-panel);
-  padding: 12px 14px;
+  padding: 9px 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 5px;
+}
+
+.setting-module-nominal {
+  border-color: rgba(140, 169, 155, 0.45);
+  background-color: #131817;
+}
+
+.setting-module-warning {
+  border-color: rgba(233, 124, 85, 0.28);
 }
 
 .setting-top-row {
@@ -786,6 +892,16 @@ select:focus-visible {
   border: 1px solid var(--line-strong);
   background-color: var(--bg-recessed);
   color: var(--ink-paper);
+}
+
+.readout-nominal {
+  color: var(--accent-sage);
+  border-color: var(--accent-sage);
+}
+
+.scale-hit {
+  color: var(--accent-sage);
+  font-weight: 600;
 }
 
 .key-readout {
@@ -833,6 +949,119 @@ select:focus-visible {
   font-family: var(--font-mono);
   font-size: 0.64rem;
   color: var(--ink-muted);
+}
+
+.resonance-meter-box {
+  border: 1px solid var(--line-subtle);
+  background-color: var(--bg-recessed);
+  padding: 7px 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.resonance-meter-box.status-stable {
+  border-color: rgba(140, 169, 155, 0.55);
+  background-color: #0e1412;
+}
+
+.resonance-meter-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+}
+
+.resonance-meter-title {
+  color: var(--ink-secondary);
+  letter-spacing: 0.04em;
+}
+
+.resonance-status-pill {
+  padding: 1px 6px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  border: 1px solid;
+}
+
+.pill-stable {
+  color: var(--accent-sage);
+  border-color: var(--accent-sage);
+  background-color: var(--accent-sage-dim);
+}
+
+.pill-unstable {
+  color: var(--accent-orange);
+  border-color: var(--accent-orange);
+  background-color: var(--accent-orange-dim);
+}
+
+.resonance-meter-track {
+  position: relative;
+  height: 10px;
+  background-color: #08090a;
+  border: 1px solid var(--line-strong);
+  overflow: hidden;
+}
+
+.resonance-stable-band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background-color: rgba(140, 169, 155, 0.22);
+  border-left: 1.5px dashed var(--accent-sage);
+  border-right: 1.5px dashed var(--accent-sage);
+  z-index: 1;
+}
+
+.resonance-level-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 2;
+}
+
+.fill-muted {
+  background-color: rgba(132, 127, 116, 0.35);
+}
+
+.fill-stable {
+  background-color: rgba(140, 169, 155, 0.65);
+}
+
+.fill-unstable {
+  background-color: rgba(233, 124, 85, 0.55);
+}
+
+.resonance-level-needle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background-color: var(--ink-paper);
+  transform: translateX(-1px);
+  z-index: 3;
+}
+
+.resonance-zone-labels {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--ink-dim);
+}
+
+.zone-active-ok {
+  color: var(--accent-sage);
+  font-weight: 600;
+}
+
+.zone-active-warn {
+  color: var(--accent-orange);
+  font-weight: 600;
 }
 
 .setting-caption {
@@ -938,7 +1167,6 @@ select:focus-visible {
   letter-spacing: 0.04em;
   border-radius: 3px;
   cursor: pointer;
-  transition: background-color 120ms ease, border-color 120ms ease;
 }
 
 .console-btn:hover {
@@ -984,6 +1212,13 @@ select:focus-visible {
   background-color: var(--accent-sage-dim);
   color: var(--ink-paper);
   white-space: nowrap;
+}
+
+.interact-action-btn.interact-btn-ready,
+.interact-action-btn.interact-btn-ready:hover {
+  background-color: var(--ink-paper);
+  color: var(--bg-chassis);
+  border-color: var(--ink-paper);
 }
 
 .status-warn {

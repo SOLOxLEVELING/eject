@@ -1,16 +1,106 @@
-import { useReducer, useState } from 'react';
+import { useEffect, useReducer, useState } from 'react';
 import { Hud } from '../components/Hud';
 import { SettingsPanel } from '../components/SettingsPanel';
 import { WorldGrid } from '../components/WorldGrid';
 import { createInitialState, gameReducer } from '../game/gameReducer';
-import { STAGE_ONE_CHAMBER } from '../game/levels';
+import { getRoomBlueprint } from '../game/levels';
 import { formatBindKey } from '../game/rules';
+import type { Direction } from '../game/types';
+
+function isRangeInput(element: EventTarget | null): boolean {
+  return (
+    element instanceof HTMLInputElement && element.type.toLowerCase() === 'range'
+  );
+}
+
+function isTextOrSelectControl(element: EventTarget | null): boolean {
+  if (!(element instanceof HTMLElement)) {
+    return false;
+  }
+  const tag = element.tagName;
+  if (tag === 'SELECT' || tag === 'TEXTAREA' || element.isContentEditable) {
+    return true;
+  }
+  if (tag === 'INPUT' && !isRangeInput(element)) {
+    return true;
+  }
+  return false;
+}
+
+const ARROW_KEYS = new Set(['arrowup', 'arrowdown', 'arrowleft', 'arrowright']);
+
+const KEY_TO_DIRECTION: Record<string, Direction> = {
+  w: 'up',
+  arrowup: 'up',
+  s: 'down',
+  arrowdown: 'down',
+  a: 'left',
+  arrowleft: 'left',
+  d: 'right',
+  arrowright: 'right',
+};
 
 export function App() {
   const [state, dispatch] = useReducer(gameReducer, undefined, createInitialState);
   const [showManual, setShowManual] = useState(false);
 
   const bindLabel = formatBindKey(state.settings.interactKey);
+  const currentChamber = getRoomBlueprint(state.room);
+
+  useEffect(() => {
+    if (state.phase !== 'playing') {
+      return;
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.altKey || event.ctrlKey || event.metaKey) {
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+      const direction = KEY_TO_DIRECTION[key];
+
+      if (direction) {
+        // Never move avatar when select/text control has focus
+        if (
+          isTextOrSelectControl(event.target) ||
+          isTextOrSelectControl(document.activeElement)
+        ) {
+          return;
+        }
+        // Range sliders use arrow keys natively; do not move avatar on arrow keys while slider is focused
+        if (
+          ARROW_KEYS.has(key) &&
+          (isRangeInput(event.target) || isRangeInput(document.activeElement))
+        ) {
+          return;
+        }
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+        event.preventDefault();
+        dispatch({ type: 'MOVE', direction });
+        return;
+      }
+
+      if (key === state.settings.interactKey) {
+        if (
+          isTextOrSelectControl(event.target) ||
+          isTextOrSelectControl(document.activeElement)
+        ) {
+          return;
+        }
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+        event.preventDefault();
+        dispatch({ type: 'INTERACT' });
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [state.phase, state.settings.interactKey]);
 
   if (state.phase === 'intro') {
     return (
@@ -136,7 +226,7 @@ export function App() {
     <div className="console-root" data-phase="playing">
       <div className="console-shell">
         <Hud
-          chamber={STAGE_ONE_CHAMBER}
+          chamber={currentChamber}
           settings={state.settings}
           showManual={showManual}
           onToggleManual={() => setShowManual((prev) => !prev)}
@@ -159,10 +249,12 @@ export function App() {
 
         <main className="shell-workspace">
           <WorldGrid
-            chamber={STAGE_ONE_CHAMBER}
+            chamber={currentChamber}
             position={state.position}
             settings={state.settings}
+            progress={state.progress}
             feedback={state.feedback}
+            onInteract={() => dispatch({ type: 'INTERACT' })}
           />
 
           <SettingsPanel

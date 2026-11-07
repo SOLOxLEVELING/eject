@@ -2,6 +2,10 @@ export type RoomId = 'display' | 'audio' | 'controls' | 'finale';
 
 export type BindKey = 'e' | 'f' | 'k';
 
+export type Direction = 'up' | 'down' | 'left' | 'right';
+
+export type AudioStatus = 'MUTED' | 'TOO LOW' | 'STABLE' | 'TOO HIGH';
+
 export type Settings = {
   brightness: number;
   volume: number;
@@ -32,6 +36,8 @@ export type RoomBlueprint = {
   width: number;
   height: number;
   spawn: Coordinates;
+  nodePosition: Coordinates;
+  exitPosition: Coordinates;
   tiles: readonly (readonly TileKind[])[];
 };
 
@@ -47,6 +53,8 @@ export type GameState = {
 export type GameAction =
   | { type: 'START_GAME' }
   | { type: 'RETURN_TO_INTRO' }
+  | { type: 'MOVE'; direction: Direction }
+  | { type: 'INTERACT' }
   | { type: 'SET_BRIGHTNESS'; value: number }
   | { type: 'SET_VOLUME'; value: number }
   | { type: 'SET_MUTED'; value: boolean }

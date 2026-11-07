@@ -1,4 +1,10 @@
-import { formatBindKey } from '../game/rules';
+import {
+  AUDIO_STABLE_MAX,
+  AUDIO_STABLE_MIN,
+  formatBindKey,
+  getAudioStatus,
+  isGlyphVisible,
+} from '../game/rules';
 import type { BindKey, Settings } from '../game/types';
 
 type SettingsPanelProps = {
@@ -23,6 +29,9 @@ export function SettingsPanel({
   onInteractKeyChange,
 }: SettingsPanelProps) {
   const bindLabel = formatBindKey(settings.interactKey);
+  const displayNominal = isGlyphVisible(settings.brightness);
+  const audioStatus = getAudioStatus(settings);
+  const audioStable = audioStatus === 'STABLE';
 
   return (
     <aside
@@ -44,7 +53,12 @@ export function SettingsPanel({
 
       <div className="settings-stack">
         {/* 01: BRIGHTNESS */}
-        <section className="setting-module" aria-labelledby="setting-brightness-label">
+        <section
+          className={`setting-module ${
+            displayNominal ? 'setting-module-nominal' : ''
+          }`}
+          aria-labelledby="setting-brightness-label"
+        >
           <div className="setting-top-row">
             <div>
               <span className="setting-code">REG 01 // DISPLAY</span>
@@ -58,7 +72,9 @@ export function SettingsPanel({
             </div>
             <output
               htmlFor="brightness-slider"
-              className="setting-readout"
+              className={`setting-readout ${
+                displayNominal ? 'readout-nominal' : ''
+              }`}
               data-testid="setting-brightness-value"
             >
               {settings.brightness}%
@@ -74,13 +90,22 @@ export function SettingsPanel({
             value={settings.brightness}
             onChange={(e) => onBrightnessChange(Number(e.target.value))}
             className="console-slider"
+            style={{
+              background: `linear-gradient(to right, ${
+                displayNominal ? '#8ca99b' : '#b5afa2'
+              } 0%, ${displayNominal ? '#8ca99b' : '#b5afa2'} ${
+                settings.brightness
+              }%, #0c0e0f ${settings.brightness}%, #0c0e0f 100%)`,
+            }}
           />
 
           <div className="slider-scale" aria-hidden="true">
             <span>0%</span>
             <span>25%</span>
             <span>50%</span>
-            <span>70% NOMINAL</span>
+            <span className={displayNominal ? 'scale-hit' : ''}>
+              ≥70% NOMINAL
+            </span>
             <span>100%</span>
           </div>
           <p className="setting-caption">
@@ -88,8 +113,15 @@ export function SettingsPanel({
           </p>
         </section>
 
-        {/* 02: VOLUME + MUTE */}
-        <section className="setting-module" aria-labelledby="setting-volume-label">
+        {/* 02: VOLUME + MUTE + STABLE-ZONE METER */}
+        <section
+          className={`setting-module ${
+            audioStable
+              ? 'setting-module-nominal'
+              : 'setting-module-warning'
+          }`}
+          aria-labelledby="setting-volume-label"
+        >
           <div className="setting-top-row">
             <div>
               <span className="setting-code">REG 02 // AUDIO</span>
@@ -103,7 +135,9 @@ export function SettingsPanel({
             </div>
             <output
               htmlFor="volume-slider"
-              className="setting-readout"
+              className={`setting-readout ${
+                audioStable ? 'readout-nominal' : ''
+              }`}
               data-testid="setting-volume-value"
             >
               {settings.volume}%
@@ -119,13 +153,79 @@ export function SettingsPanel({
             value={settings.volume}
             onChange={(e) => onVolumeChange(Number(e.target.value))}
             className="console-slider"
+            style={{
+              background: `linear-gradient(to right, ${
+                settings.muted
+                  ? '#54524c'
+                  : audioStable
+                    ? '#8ca99b'
+                    : '#e97c55'
+              } 0%, ${
+                settings.muted
+                  ? '#54524c'
+                  : audioStable
+                    ? '#8ca99b'
+                    : '#e97c55'
+              } ${settings.volume}%, #0c0e0f ${settings.volume}%, #0c0e0f 100%)`,
+            }}
           />
 
-          <div className="slider-scale" aria-hidden="true">
-            <span>0%</span>
-            <span>25%</span>
-            <span>55–75% BAND</span>
-            <span>100%</span>
+          {/* STABLE-ZONE METER */}
+          <div
+            className={`resonance-meter-box status-${audioStatus
+              .toLowerCase()
+              .replace(/\s+/g, '-')}`}
+            aria-label="Audio Resonance Stability Meter"
+          >
+            <div className="resonance-meter-header">
+              <span className="resonance-meter-title">
+                STABLE ZONE: {AUDIO_STABLE_MIN}–{AUDIO_STABLE_MAX}%
+              </span>
+              <span
+                className={`resonance-status-pill ${
+                  audioStable ? 'pill-stable' : 'pill-unstable'
+                }`}
+                data-testid="audio-status-badge"
+              >
+                {audioStatus}
+              </span>
+            </div>
+
+            <div className="resonance-meter-track" aria-hidden="true">
+              <div
+                className="resonance-stable-band"
+                style={{
+                  left: `${AUDIO_STABLE_MIN}%`,
+                  width: `${AUDIO_STABLE_MAX - AUDIO_STABLE_MIN}%`,
+                }}
+              />
+              <div
+                className={`resonance-level-fill ${
+                  settings.muted
+                    ? 'fill-muted'
+                    : audioStable
+                      ? 'fill-stable'
+                      : 'fill-unstable'
+                }`}
+                style={{ width: `${settings.volume}%` }}
+              />
+              <div
+                className="resonance-level-needle"
+                style={{ left: `${settings.volume}%` }}
+              />
+            </div>
+
+            <div className="resonance-zone-labels" aria-hidden="true">
+              <span className={audioStatus === 'TOO LOW' ? 'zone-active-warn' : ''}>
+                0–54 TOO LOW
+              </span>
+              <span className={audioStatus === 'STABLE' ? 'zone-active-ok' : ''}>
+                55–75 STABLE
+              </span>
+              <span className={audioStatus === 'TOO HIGH' ? 'zone-active-warn' : ''}>
+                76–100 TOO HIGH
+              </span>
+            </div>
           </div>
 
           <div className="mute-control-row">
@@ -157,7 +257,10 @@ export function SettingsPanel({
         </section>
 
         {/* 03: INTERACT KEY */}
-        <section className="setting-module" aria-labelledby="setting-interact-label">
+        <section
+          className="setting-module"
+          aria-labelledby="setting-interact-label"
+        >
           <div className="setting-top-row">
             <div>
               <span className="setting-code">REG 03 // CONTROLS</span>
