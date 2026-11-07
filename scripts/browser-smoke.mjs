@@ -239,12 +239,33 @@ try {
   assert.equal(await evaluate(`document.querySelector('.tile-player .operator')?.tagName`), 'svg');
   assert.equal(await evaluate(`getComputedStyle(document.querySelector('.optical-signal')).opacity`), '0');
   assert.equal(await evaluate(`getComputedStyle(document.querySelector('.tile-wall')).zIndex`), '2');
-  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.world-luminance-veil')).zIndex`), '1');
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.world-luminance-veil')).zIndex`), '4');
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.tile-player')).zIndex`), '5');
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.world-luminance-veil')).pointerEvents`), 'none');
   assert(await evaluate(`Array.from(document.querySelectorAll('[data-nearby]')).every(el => el.dataset.nearby === 'false')`));
   assert(!(await evaluate(`document.querySelector('.hud-bar').textContent.match(/70|55|75|authorized.*K/i)`)));
   await screenshot('01-cold-start');
   await click('[aria-label="Dismiss chamber note"]');
   assert(!(await evaluate(`!!document.querySelector('[data-testid="chamber-arrival"]')`)));
+
+  // Same room and position: brightness changes spatial visibility, not only the glyph.
+  const lightCenter = () => evaluate(`document.querySelector('.world-luminance-veil').dataset.lightCenter`);
+  const initialCenter = await lightCenter();
+  assert.equal(initialCenter, `${2.5 / 9 * 100}% ${3.5 / 7 * 100}%`);
+  assert(await evaluate(`Number(document.querySelector('.world-luminance-veil').dataset.darkness) > 0.9`));
+  await screenshot('v3-01-brightness-20-same-position');
+  await key('Escape'); await range('#brightness-slider', 80);
+  assert.equal(await position(), '2,3');
+  assert.equal(await lightCenter(), initialCenter);
+  assert(await evaluate(`Number(document.querySelector('.world-luminance-veil').dataset.darkness) < 0.07`));
+  await key('Escape'); await screenshot('v3-02-brightness-80-same-position');
+  await key('Escape'); await range('#brightness-slider', 20); await key('Escape');
+  for (const k of ['a', 'w', 'w']) await key(k);
+  assert.equal(await position(), '1,1');
+  assert.equal(await lightCenter(), `${1.5 / 9 * 100}% ${1.5 / 7 * 100}%`);
+  await screenshot('v3-03-edge-spotlight-20');
+  for (const k of ['s', 's', 'd']) await key(k);
+  assert.equal(await lightCenter(), initialCenter);
 
   // Focused HUD/button keys must not reach the world, including descendant targets.
   await focus('[data-testid="settings-open-btn"]');
@@ -516,9 +537,10 @@ try {
   console.log('PASS: button/Escape menu, native Tab containment, slider/select keyboard controls, focus return, no keyboard/pointer leakage.');
   console.log(`PASS: full opening completed in ${openingDuration}ms; first-frame button, mid-sequence Escape, Enter, held-key and reduced-motion paths passed.`);
   console.log('PASS: cold start → three original puzzles → The Frame → Cross-Talk → live-setting finale → escape scene → reset title; three complete escapes, non-blocking chamber notes, menu restart and boot return.');
-  console.log('PASS: OP-01 artwork, readable walls above brightness veil, glyph threshold/reveal, proximity, opening door leaves, muted/low/high/stable resonator, terminal authorization and reduced-motion art.');
+  console.log('PASS: OP-01 artwork, world geometry beneath spatial darkness, glyph threshold/reveal, proximity, opening door leaves, muted/low/high/stable resonator, terminal authorization and reduced-motion art.');
   console.log('PASS: The Frame collision, live retraction, safe rejection on/beyond passage, restoration from entry side, reduced motion and unchanged browser dimensions/fullscreen; finale retains exactly three locks.');
   console.log('PASS: Cross-Talk requires lens before relay, 69/70 reveal, latched optical carrier, stable unmuted relay, separate proximity/focus isolation, powered exit, reduced-motion cable and 390px room.');
+  console.log('PASS: player-centered spatial darkness, same-position 20/80 reveal, edge/movement synchronization, readable player and pointer-transparent lighting.');
   console.log('PASS: 390px pointer controls/overlay and no captured browser errors.');
 } finally {
   clearTimeout(watchdog);

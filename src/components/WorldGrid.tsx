@@ -1,4 +1,5 @@
 import { Operator } from './Operator';
+import { getWorldLight } from '../game/lighting';
 import {
   canActivateGlyph,
   canActivateResonator,
@@ -12,7 +13,6 @@ import {
   isGlyphVisible,
   isRoomExitUnlocked,
   isTerminalKeyAuthorized,
-  isTileLocallyLit,
 } from '../game/rules';
 import type { Coordinates, Direction, Progress, RoomBlueprint, Settings } from '../game/types';
 
@@ -46,10 +46,9 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
   const showInteract = (adjacentToNode || adjacentToRelay) && chamber.id !== 'finale' && chamber.id !== 'frame' && !exitUnlocked &&
     !(crossTalk && adjacentToNode && progress.crossTalkStage !== 'unlinked');
 
-  // Darkness belongs to the environment; the operator, props and HUD stay readable.
-  const veilOpacity = chamber.id === 'display'
-    ? (Math.max(0, 75 - settings.brightness) / 75) * 0.48
-    : ((100 - settings.brightness) / 100) * 0.22;
+  const light = getWorldLight(settings.brightness);
+  const lightCenter = `${((position.x + 0.5) / chamber.width) * 100}% ${((position.y + 0.5) / chamber.height) * 100}%`;
+  const lightSize = `${(light.outerRadius / chamber.width) * 100}% ${(light.outerRadius / chamber.height) * 100}%`;
 
   let contextualHint = '';
   if (crossTalk && (adjacentToNode || adjacentToRelay)) {
@@ -116,7 +115,6 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
               const tile = getTileAt(chamber, { x, y }, settings) ?? baseTile;
               const isFrame = baseTile === 'frame';
               const isPlayer = position.x === x && position.y === y;
-              const locallyLit = chamber.id !== 'display' || isTileLocallyLit(position, { x, y }, settings.brightness);
               const isNode = tile === 'node';
               const nodeNearby = isNode && isAdjacent(position, { x, y });
               const crossRelay = isNode && crossTalk && x === chamber.relayPosition?.x && y === chamber.relayPosition?.y;
@@ -145,7 +143,6 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
                 'world-tile', `tile-${tile}`,
                 isFrame ? 'tile-frame' : '',
                 isPlayer ? 'tile-player' : '',
-                !locallyLit && tile !== 'wall' && tile !== 'exit' ? 'tile-fogged' : 'tile-lit',
                 nodeObscured ? 'tile-node-obscured' : '',
                 nodeRevealed ? 'tile-node-revealed' : '',
                 nodeUnstable ? 'tile-node-unstable' : '',
@@ -270,7 +267,15 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
         ))}
         {chamber.id === 'frame' && <p className="frame-clue" role="note">THE FRAME IS PART OF THE PRISON.</p>}
         {crossTalk && <p className="frame-clue" role="note">CATCH THE LIGHT. CARRY THE SIGNAL.</p>}
-        <div className="world-luminance-veil" aria-hidden="true" style={{ opacity: veilOpacity }} />
+        <div
+          className="world-luminance-veil"
+          aria-hidden="true"
+          data-light-center={lightCenter}
+          data-darkness={light.darkness}
+          style={{
+            background: `radial-gradient(ellipse ${lightSize} at ${lightCenter}, transparent ${(light.innerRadius / light.outerRadius) * 100}%, rgba(0, 0, 0, ${light.darkness}) 100%)`,
+          }}
+        />
       </div>
 
       <footer className="scene-controls">
