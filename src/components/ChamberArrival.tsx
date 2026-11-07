@@ -38,7 +38,7 @@ export function ChamberArrival({ room, bindLabel, complete, onReturnToWorld }: C
         onClick={() => {
           setMessage(message === 'hint' ? null : 'hint');
           onReturnToWorld();
-        }}>?</button>
+        }}>Hint</button>
       {message && (
         <aside ref={noteRef} id="chamber-note" className="chamber-arrival" aria-label="Chamber dialogue"
           data-testid="chamber-arrival" data-message={message}>

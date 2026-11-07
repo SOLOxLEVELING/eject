@@ -112,6 +112,24 @@ try {
     const { data } = await send('Page.captureScreenshot', { format: 'png' });
     await writeFile(join(process.env.SCREENSHOT_DIR, `${name}.png`), Buffer.from(data, 'base64'));
   };
+  const checkPatchLayout = async () => {
+    assert.deepEqual(await evaluate(`(() => {
+      const panels = [document.querySelector('.patch-deck'), ...document.querySelectorAll('.patch-expansion[open] .patch-expanded-controls')];
+      const targets = ['.onscreen-dpad', '.room-hint-toggle', '#chamber-note', '.nearby-interaction', '[data-exit-state]', '[data-frame-state]'];
+      return targets.filter(selector => {
+        const target = document.querySelector(selector);
+        if (!target) return false;
+        const t = target.getBoundingClientRect();
+        return panels.some(panel => {
+          const p = panel.getBoundingClientRect();
+          return Math.min(p.right, t.right) - Math.max(p.left, t.left) > 1 && Math.min(p.bottom, t.bottom) - Math.max(p.top, t.top) > 1;
+        });
+      });
+    })()`), [], 'Patch Deck must not cover hints, interaction, movement, passage or exit');
+    assert(await evaluate(`Array.from(document.querySelectorAll('.patch-heading, .patch-return, .patch-dial label, .patch-dial output, .patch-mute, .patch-expansion summary, .patch-signal, .patch-signal span, .patch-expanded-controls label, .patch-expanded-controls p')).every(el => parseFloat(getComputedStyle(el).fontSize) >= 12)`));
+    assert.equal(await evaluate(`document.documentElement.scrollWidth`), await evaluate('innerWidth'));
+    assert.equal(await evaluate(`document.documentElement.scrollHeight`), await evaluate('innerHeight'));
+  };
   const checkRoomHint = async (moveWhileOpen = false) => {
     const before = await position();
     await focus('[aria-label="Show chamber hint"]'); await key('Enter');
@@ -124,6 +142,8 @@ try {
       await key('a'); assert.equal(await position(), before);
       assert.equal(await evaluate(`document.querySelector('[data-testid="chamber-arrival"]').dataset.message`), 'hint');
     }
+    assert.equal(await evaluate(`document.querySelector('.room-hint-toggle').textContent`), 'Hint');
+    await checkPatchLayout();
     await screenshot(`v3-5-hint-${await room()}`);
     await focus('[aria-label="Dismiss chamber note"]');
     for (const k of ['d', 'e', 'k']) await key(k);
@@ -353,13 +373,47 @@ try {
   const initialCenter = await lightCenter();
   assert.equal(initialCenter, `${2.5 / 9 * 100}% ${3.5 / 7 * 100}%`);
   assert(await evaluate(`Number(document.querySelector('.world-luminance-veil').dataset.darkness) > 0.9`));
-  await screenshot('v3-01-brightness-20-same-position');
+  await screenshot('v3-5.5b-brightness-20-same-position');
+  assert.equal(await evaluate(`document.querySelectorAll('.glyph-discovery').length`), 0);
+  await range('#patch-brightness', 69);
+  assert.equal(await evaluate(`document.querySelectorAll('.glyph-discovery').length`), 0);
+  await evaluate(`window.__glyphPulses = 0; document.addEventListener('animationstart', event => { if (event.animationName === 'glyph-discovery') window.__glyphPulses++; });`);
   await range('#patch-brightness', 80);
+  await delay(130);
+  assert.equal(await evaluate(`document.querySelector('[data-glyph-state]').dataset.glyphState`), 'revealed');
+  assert.equal(await exit(), 'locked');
+  assert(await evaluate(`parseFloat(getComputedStyle(document.querySelector('.glyph-discovery')).opacity) > 0`));
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.glyph-discovery')).pointerEvents`), 'none');
+  assert.equal(await evaluate(`window.__audioContexts`), 0);
+  await screenshot('v3-5.5b-first-glyph-halo');
+  await delay(550);
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.glyph-discovery')).opacity`), '0');
+  assert.equal(await evaluate(`window.__glyphPulses`), 1);
   assert(!(await modal()));
   assert.equal(await position(), '2,3');
   assert.equal(await lightCenter(), initialCenter);
   assert(await evaluate(`Number(document.querySelector('.world-luminance-veil').dataset.darkness) < 0.07`));
-  await screenshot('v3-02-brightness-80-same-position');
+  await screenshot('v3-5.5b-brightness-80-same-position');
+  await range('#patch-brightness', 20);
+  await range('#patch-brightness', 80);
+  await delay(50);
+  assert.equal(await evaluate(`window.__glyphPulses`), 1);
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.glyph-discovery')).opacity`), '0');
+  await range('#patch-brightness', 100);
+  for (const [width, height] of [[1280, 720], [1024, 720], [900, 720], [768, 720], [640, 720], [390, 844], [320, 720]]) {
+    await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: width < 641 });
+    await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+    await checkPatchLayout();
+    await click('[aria-label="Show chamber hint"]');
+    await checkPatchLayout();
+    await click('.patch-expansion summary');
+    await checkPatchLayout();
+    await screenshot(`v3-5.5b-deck-expanded-${width}`);
+    await click('.patch-expansion summary');
+    await click('[aria-label="Dismiss chamber note"]');
+    await screenshot(`v3-5.5b-deck-${width}`);
+  }
+  await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 720, deviceScaleFactor: 1, mobile: false });
   await range('#patch-brightness', 20);
   await click('[data-testid="patch-return-btn"]');
   for (const k of ['a', 'w', 'w']) await key(k);
@@ -372,6 +426,8 @@ try {
   // Nonmodal instrument controls: adjust, move, adjust again without opening Settings.
   await focus('#patch-brightness'); await key('ArrowRight');
   assert.equal(await evaluate(`document.querySelector('#patch-brightness').value`), '21');
+  assert(await evaluate(`document.activeElement.matches(':focus-visible') && parseFloat(getComputedStyle(document.activeElement).outlineWidth) >= 2`));
+  await screenshot('v3-5.5b-deck-keyboard-focus');
   for (const k of ['d', 'w', 'e', 'k']) await key(k);
   assert.equal(await position(), '2,3');
   await key('Tab');
@@ -748,7 +804,14 @@ try {
     assert.equal(await evaluate(`document.querySelector('#patch-volume').value`), '20');
     assert.equal(await evaluate(`document.querySelector('#patch-mute').getAttribute('aria-pressed')`), 'true');
     assert.equal(await evaluate(`document.querySelector('.patch-expansion').open`), false);
-    await range('#patch-brightness', 70); await click('[data-testid="patch-return-btn"]');
+    assert.equal(await evaluate(`document.querySelectorAll('.glyph-discovery').length`), 0);
+    await range('#patch-brightness', 70);
+    assert.equal(await evaluate(`document.querySelectorAll('.glyph-discovery').length`), 1);
+    if (await evaluate(`matchMedia('(prefers-reduced-motion: reduce)').matches`)) {
+      assert.equal(await evaluate(`getComputedStyle(document.querySelector('.glyph-discovery')).animationName`), 'none');
+      await waitFor(`getComputedStyle(document.querySelector('.optical-signal')).opacity === '1'`, 500);
+    }
+    await click('[data-testid="patch-return-btn"]');
     for (const k of ['d', 'd', 'd', 'w', 'w', 'e', 's', 'd', 'd', 's', 'd']) await key(k);
     await range('#patch-volume', 65); await click('#patch-mute');
     await click('[data-testid="patch-return-btn"]');
@@ -763,6 +826,14 @@ try {
     assert.equal(await exit(), 'locked');
     await focus('#patch-frame'); await key('b'); await key('Enter');
     assert.equal(await evaluate(`document.querySelector('[data-frame-state]').dataset.frameState`), 'borderless');
+    await checkPatchLayout();
+    for (const [width, height] of [[768, 720], [390, 844], [320, 720]]) {
+      await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: width < 641 });
+      await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+      await checkPatchLayout();
+      await screenshot(`v3-5.5b-frame-deck-expanded-${width}`);
+    }
+    await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 720, deviceScaleFactor: 1, mobile: false });
     await screenshot('v3-3-frame-deck-expanded');
     assert(await evaluate(`(() => {
       const w = document.querySelector('.world-grid').getBoundingClientRect();
@@ -843,6 +914,7 @@ try {
   console.log('PASS: The Frame room-sized shutter conceals the inaccessible half and retracts in 280ms; same-position camera/light comparison, collision alignment, safe rejection on passage/beyond/near exit, entry-side restoration, instant reduced motion, no browser resizing/fullscreen and exactly three finale locks.');
   console.log('PASS: Cross-Talk requires lens before relay, 69/70 reveal, latched optical carrier, stable unmuted relay, separate proximity/focus isolation, powered exit, reduced-motion cable and 390px room.');
   console.log('PASS: player-centered spatial darkness, same-position 20/80 reveal, edge/movement synchronization, readable player and pointer-transparent lighting.');
+  console.log('PASS: one 520ms glyph halo per run, no retrigger on threshold oscillation, no early reveal at 69, no unlock or muted audio side effects, fresh replay and reduced-motion suppression; Patch Deck text >=12px, visible keyboard focus, Hint label and overlap/overflow checks from 320px to 1280px including expanded controls.');
   console.log(`PASS: Patch Deck leaves ${(unobscuredRoom * 100).toFixed(1)}% of room unobscured; native Tab, focus isolation, brightness/movement round trip, shared menu state and two complete deck-only settings playthroughs.`);
   console.log(`PASS: dismissible manual hints in all six rooms, movement while reading and native focus/Tab; ordered 0 → Look again → 1 → dawn ending in ${endingDuration}ms, credits, reduced-motion recap, skip and replay.`);
   console.log('PASS: 390px pointer controls/overlay and no captured browser errors.');

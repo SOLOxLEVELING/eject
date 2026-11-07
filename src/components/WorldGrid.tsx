@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Operator } from './Operator';
 import { getWorldLight } from '../game/lighting';
 import {
@@ -28,6 +29,10 @@ type WorldGridProps = {
 export function WorldGrid({ chamber, position, settings, progress, onMove, onInteract }: WorldGridProps) {
   const bindLabel = formatBindKey(settings.interactKey);
   const glyphVisible = isGlyphVisible(settings.brightness);
+  const [glyphDiscovered, setGlyphDiscovered] = useState(false);
+  useEffect(() => {
+    if (chamber.id === 'display' && glyphVisible) setGlyphDiscovered(true);
+  }, [chamber.id, glyphVisible]);
   const audioStatus = getAudioStatus(settings);
   const audioStable = audioStatus === 'STABLE';
   const keyAuthorized = isTerminalKeyAuthorized(settings.interactKey);
@@ -195,6 +200,9 @@ export function WorldGrid({ chamber, position, settings, progress, onMove, onInt
                             <path className="machine-housing" d="M18 53V15l8-8h48l8 8v38z" />
                             {crossReceiver && <path className="receiver-hood" d="M15 11h10v43H15m60-43h10v43H75M35 4h30" />}
                             <path className="optical-socket" d="M50 12 72 32 50 52 28 32z" />
+                            {chamber.id === 'display' && glyphDiscovered && (
+                              <circle className="glyph-discovery" cx="50" cy="32" r="29" />
+                            )}
                             <g className="optical-signal">
                               <path d="m50 18 15 14-15 14-15-14zM50 24v16m-8-8h16" />
                               <path d="M23 19h8m38 0h8M23 45h8m38 0h8" />
