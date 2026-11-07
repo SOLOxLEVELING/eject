@@ -17,25 +17,9 @@ import {
 import type { BindKey, Direction, Settings } from '../game/types';
 
 function isInteractiveControl(element: EventTarget | null): boolean {
-  if (!(element instanceof HTMLElement)) {
-    return false;
-  }
-  const tag = element.tagName;
-  return (
-    tag === 'INPUT' ||
-    tag === 'SELECT' ||
-    tag === 'TEXTAREA' ||
-    tag === 'BUTTON' ||
-    element.isContentEditable
+  return element instanceof Element && Boolean(
+    element.closest('input, select, textarea, button, a[href], [contenteditable]:not([contenteditable="false"])'),
   );
-}
-
-function isTextOrSelectControl(element: EventTarget | null): boolean {
-  if (!(element instanceof HTMLElement)) {
-    return false;
-  }
-  const tag = element.tagName;
-  return tag === 'SELECT' || tag === 'TEXTAREA' || element.isContentEditable;
 }
 
 type ToneKind = 'step' | 'blocked' | 'unlock' | 'win' | 'probe';
@@ -56,6 +40,8 @@ const KEY_TO_DIRECTION: Record<string, Direction> = {
 export function App() {
   const [state, dispatch] = useReducer(gameReducer, undefined, createInitialState);
   const [showManual, setShowManual] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const sceneRef = useRef<HTMLElement | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -135,7 +121,7 @@ export function App() {
 
   function triggerMove(direction: Direction) {
     const current = stateRef.current;
-    if (current.phase !== 'playing') {
+    if (current.phase !== 'playing' || settingsOpen) {
       return;
     }
     const room = getRoomBlueprint(current.room);
@@ -156,7 +142,7 @@ export function App() {
 
   function triggerInteract() {
     const current = stateRef.current;
-    if (current.phase !== 'playing') {
+    if (current.phase !== 'playing' || settingsOpen) {
       return;
     }
     const room = getRoomBlueprint(current.room);
@@ -201,42 +187,28 @@ export function App() {
       }
 
       const key = event.key.toLowerCase();
-      const direction = KEY_TO_DIRECTION[key];
+      if (key === 'escape' && !settingsOpen && !event.repeat) {
+        event.preventDefault();
+        setSettingsOpen(true);
+        return;
+      }
 
+      if (
+        settingsOpen || event.isComposing ||
+        isInteractiveControl(event.target) ||
+        isInteractiveControl(document.activeElement)
+      ) {
+        return;
+      }
+
+      const direction = KEY_TO_DIRECTION[key];
       if (direction) {
-        if (
-          isInteractiveControl(event.target) ||
-          isInteractiveControl(document.activeElement)
-        ) {
-          return;
-        }
         event.preventDefault();
         triggerMove(direction);
-        return;
-      }
-
-      if (key === stateRef.current.settings.interactKey) {
-        if (
-          isTextOrSelectControl(event.target) ||
-          isTextOrSelectControl(document.activeElement)
-        ) {
-          return;
-        }
-        if (document.activeElement instanceof HTMLElement) {
-          document.activeElement.blur();
-        }
+      } else if (key === stateRef.current.settings.interactKey) {
         event.preventDefault();
         triggerInteract();
-        return;
-      }
-
-      if (CANDIDATE_BIND_KEYS.has(key as BindKey)) {
-        if (
-          isTextOrSelectControl(event.target) ||
-          isTextOrSelectControl(document.activeElement)
-        ) {
-          return;
-        }
+      } else if (CANDIDATE_BIND_KEYS.has(key as BindKey)) {
         event.preventDefault();
         playConsoleTone('blocked');
         dispatch({ type: 'REJECT_UNBOUND_KEY', key: key as BindKey });
@@ -245,7 +217,13 @@ export function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [state.phase]);
+  }, [state.phase, settingsOpen]);
+
+  useEffect(() => {
+    if (state.phase === 'playing' && !settingsOpen) {
+      sceneRef.current?.focus({ preventScroll: true });
+    }
+  }, [state.phase, settingsOpen]);
 
   if (state.phase === 'intro') {
     return (
@@ -307,7 +285,7 @@ export function App() {
                     </span>
                   </div>
                   <div className="manual-item">
-                    <span className="manual-key">SETTINGS AT RIGHT</span>
+                    <span className="manual-key">SETTINGS / ESC</span>
                     <span className="manual-desc">
                       Brightness, Volume/Mute, and Key Bindings directly rewire the room.
                     </span>
@@ -321,7 +299,7 @@ export function App() {
               aria-label="Initial System Parameter Registers"
             >
               <div className="rack-header">
-                <span className="panel-index">PARAMETER BUS // RIGHT CONSOLE</span>
+                <span className="panel-index">PARAMETER BUS // IN-GAME SETTINGS</span>
                 <h2 className="rack-title">INITIAL DIAGNOSTIC REGISTERS</h2>
               </div>
 
@@ -466,68 +444,70 @@ export function App() {
   }
 
   return (
-    <div className="console-root" data-phase="playing">
-      <div className="console-shell">
-        <Hud
+    <div className="game-screen" data-phase="playing">
+      <Hud
+        chamber={currentChamber}
+        settings={state.settings}
+        progress={state.progress}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
+      <main
+        ref={sceneRef}
+        className="game-world"
+        tabIndex={0}
+        aria-label="Chamber. Move with WASD or arrow keys. Open settings with Escape."
+        onPointerDown={(event) => {
+          if (!settingsOpen && !isInteractiveControl(event.target)) {
+            sceneRef.current?.focus({ preventScroll: true });
+          }
+        }}
+      >
+        <WorldGrid
           chamber={currentChamber}
+          position={state.position}
           settings={state.settings}
           progress={state.progress}
-          showManual={showManual}
-          onToggleManual={() => setShowManual((prev) => !prev)}
-          onRestart={() => dispatch({ type: 'RESTART_GAME' })}
-          onReturnToIntro={() => dispatch({ type: 'RETURN_TO_INTRO' })}
+          onMove={triggerMove}
+          onInteract={triggerInteract}
         />
+      </main>
 
-        {showManual && (
-          <section className="shell-manual-banner" aria-label="How to Play Reference">
-            <div className="manual-banner-item">
-              <strong>MOVEMENT:</strong> WASD, Arrow Keys, or On-Screen D-Pad
-            </div>
-            <div className="manual-banner-item">
-              <strong>INTERACT:</strong> Bound Key [{bindLabel}] or On-Screen Interact Button
-            </div>
-            <div className="manual-banner-item">
-              <strong>OBJECTIVE:</strong> Adjust the right-hand Settings Console to unlock each sector gate.
-            </div>
-          </section>
-        )}
-
-        <main className="shell-workspace">
-          <WorldGrid
-            chamber={currentChamber}
-            position={state.position}
-            settings={state.settings}
-            progress={state.progress}
-            feedback={state.feedback}
-            onMove={triggerMove}
-            onInteract={triggerInteract}
-          />
-
-          <SettingsPanel
-            activeRoom={state.room}
-            settings={state.settings}
-            onBrightnessChange={(value) =>
-              dispatch({ type: 'SET_BRIGHTNESS', value })
-            }
-            onVolumeChange={(value) => {
-              const nextSettings = { ...state.settings, volume: value };
-              playConsoleTone('probe', nextSettings);
-              dispatch({ type: 'SET_VOLUME', value });
-            }}
-            onToggleMute={() => {
-              const nextSettings = {
-                ...state.settings,
-                muted: !state.settings.muted,
-              };
-              playConsoleTone('probe', nextSettings);
-              dispatch({ type: 'TOGGLE_MUTE' });
-            }}
-            onInteractKeyChange={(value) =>
-              dispatch({ type: 'SET_INTERACT_KEY', value })
-            }
-          />
-        </main>
-      </div>
+      {settingsOpen && (
+        <SettingsPanel
+          activeRoom={state.room}
+          settings={state.settings}
+          feedback={state.feedback}
+          onClose={() => setSettingsOpen(false)}
+          onRestart={() => {
+            setSettingsOpen(false);
+            dispatch({ type: 'RESTART_GAME' });
+          }}
+          onReturnToIntro={() => {
+            setSettingsOpen(false);
+            setShowManual(false);
+            dispatch({ type: 'RETURN_TO_INTRO' });
+          }}
+          onBrightnessChange={(value) =>
+            dispatch({ type: 'SET_BRIGHTNESS', value })
+          }
+          onVolumeChange={(value) => {
+            const nextSettings = { ...state.settings, volume: value };
+            playConsoleTone('probe', nextSettings);
+            dispatch({ type: 'SET_VOLUME', value });
+          }}
+          onToggleMute={() => {
+            const nextSettings = {
+              ...state.settings,
+              muted: !state.settings.muted,
+            };
+            playConsoleTone('probe', nextSettings);
+            dispatch({ type: 'TOGGLE_MUTE' });
+          }}
+          onInteractKeyChange={(value) =>
+            dispatch({ type: 'SET_INTERACT_KEY', value })
+          }
+        />
+      )}
     </div>
   );
 }

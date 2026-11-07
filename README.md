@@ -7,7 +7,7 @@ Built for **WolfJam 2026** — a 3–5 minute top-down diagnostic puzzle-adventu
 
 ## Concept & Gameplay Arc
 
-Operator **OP-01** is locked inside a faulted firmware build (`REV 04.9`). Standard traversal cannot open the containment gates. Instead, you must use the live **System Settings** console on the right to rewire the dungeon environment in real time:
+Operator **OP-01** is locked inside a faulted firmware build (`REV 04.9`). Standard traversal cannot open the containment gates. Instead, open the live **System Settings** overlay with **Escape** or the **Settings** button to rewire the dungeon environment in real time. The chamber fills the play screen; settings pause movement without pausing visual updates:
 
 1. **Sector 01 — DISPLAY / THE UNSEEN (`OPTICAL CALIBRATION BAY`)**  
    The chamber starts at `20%` brightness in low-gain fog. Moving reveals local surroundings, while raising **Brightness** to `>= 70%` reveals a hidden optical glyph at `(06, 01)`. Stand adjacent to the glyph and press **Interact** (`E` initially) to unlock the sector exit.
@@ -24,7 +24,8 @@ Operator **OP-01** is locked inside a faulted firmware build (`REV 04.9`). Stand
 
 - **Move:** `WASD`, `Arrow Keys`, or the on-screen directional buttons (`← ↑ ↓ →`)
 - **Interact:** Current bound key (`E` initially; `F` or `K` when rebound) or the on-screen **Interact [`Key`]** button
-- **Settings Console:** Operable via pointer (mouse/touch) or keyboard (`Tab`, `Arrow Keys`, `Enter`/`Space`)
+- **Settings:** `Escape` or the visible **Settings** button opens the overlay; `Escape` or **Resume** closes it and focuses the room. Native sliders/select support pointer and keyboard (`Tab`, `Arrow Keys`, `Enter`/`Space`). Game movement and interaction are blocked while settings are open or a control has keyboard focus.
+- **Restart / Help:** Inside Settings, use **Restart**, **Boot Screen**, or expand **Controls & field notes** for detailed feedback.
 - **Audio & Motion:** Optional procedural Web Audio console tones are strictly user-gesture gated, obey the in-game **Mute** and **Volume** settings (`Muted` by default), and are never required to solve any puzzle. Animations respect `prefers-reduced-motion`.
 
 ---
@@ -53,7 +54,12 @@ npm run build
 
 # Run unit and progression tests
 npm test -- --run
+
+# Build and smoke-test the real browser UI (Node 22+ and Chrome required)
+npm run test:browser
 ```
+
+The browser smoke uses Chrome's DevTools protocol with no added dependencies. On macOS it finds the standard Chrome installation; elsewhere it uses `google-chrome`. Override with `CHROME_PATH=/path/to/chrome`. Set `SCREENSHOT_DIR=/tmp/eject-smoke` to save desktop, live-settings, finale and mobile evidence. It checks a cold-start escape/replay, overlay focus/input isolation, keyboard settings, live gate changes and viewport overflow.
 
 ---
 

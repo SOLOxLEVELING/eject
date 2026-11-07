@@ -1,73 +1,63 @@
-# AGENTS.md — EJECT: Settings Are the Dungeon
+# AGENTS.md — EJECT V2 (replaces V1 agent instructions)
 
-This file is the shared operating contract for all coding and review agents working on this repository.
+You are working on **EJECT: Settings Are the Dungeon**, an existing playable hackathon game. V1 has reportedly reached Stage 5; V1 Stage 6 (submission/readiness) has NOT been run. This is a **presentation-and-experience upgrade**, NOT a greenfield rebuild.
 
-## Mission
-Build and submit a polished, original, approximately 3–5 minute **browser game** for WolfJam 2026. The player explores small top-down rooms and uses settings (brightness, volume/mute, and interaction key binding) as gameplay mechanics. The result must run without accounts, servers, API keys, or installation.
+## Source order
+1. The user's latest instructions.
+2. `V2_PLAN.md` for V2 design, sequencing, scope and acceptance gates.
+3. `PLAN.md` (existing V1 plan) for the already-implemented mechanics and puzzle contracts, unless V2_PLAN explicitly supersedes it.
+4. This file for agent work protocol and constraints.
 
-**Source of truth:** `PLAN.md` defines gameplay behavior, visual direction, scope, acceptance gates, and deadlines. The user's latest explicit instruction overrides these documents. Do not assume a kickoff theme: read the `Theme` field in `PLAN.md`; if it is `UNCONFIRMED`, keep story copy easy to adapt.
+If any files are missing, report it and inspect the repo; do not invent code or claim a feature is present without verifying it.
 
-## Implementation constraints
-- Stack: Vite + React + TypeScript + plain CSS. No Phaser, backend, database, router, Tailwind, state management library, animation library, component library, or external AI integration.
-- Game world: deterministic top-down tile grid displayed with CSS Grid. Use small pure functions for rules and collision; use a React reducer for game state.
-- Game is playable with keyboard; settings are operable with pointer and keyboard. Provide a visible on-screen Interact action for accessibility where appropriate.
-- Sound: optional minimal Web Audio tones after user interaction only; no autoplay. Muting must also mute any generated tone. The puzzle must remain solvable with sound off.
-- Use local assets/CSS/SVG created for this project, or legally usable attributed assets. No uncredited downloads. Fonts must have system fallbacks; avoid network-critical dependencies.
-- Do not use real operating-system brightness/volume APIs. Settings alter the **in-game** world.
-- Avoid architecture for hypothetical future features. No analytics, accounts, scoring, leaderboard, tutorial engine, procedural levels, AI NPCs, or particle framework.
+## Roles
+- **GPT-6.1 Sol — Builder:** the ONLY agent allowed to edit repository files during V2. Works on one V2 milestone per request and then stops.
+- **Gemini 4 Argon — Independent Reviewer:** READ-ONLY. Inspects diffs, builds/tests, actual playability and scope. Reports reproducible P0/P1/P2 issues, not speculative architecture refactors.
+- **Human:** accepts milestones, runs in-browser playtests, directs feature freeze, deployment and submission.
 
-## Design rules — no generic AI template aesthetics
-- Present a memorable **corrupted diagnostic console**, not a startup SaaS dashboard.
-- Palette: near-black `#101213`, warm paper `#E7E1D4`, muted sage `#8CA99B`, signal orange `#E97C55` (modest variations allowed).
-- Strong hierarchy, substantial negative space, deliberate typography, subtle technical lines. Mostly sharp corners; reserve rounded shapes for controls where helpful.
-- Avoid purple/blue gradients, glassmorphism, excessive glows, emoji icons, stock hero images, randomly scattered floating cards, long intro animations, and unexplained UI decoration.
-- Visual feedback must explain gameplay: show *why* a gate is locked and immediately reflect setting changes.
-- Animations should be short, purposeful, and respect `prefers-reduced-motion`.
-- Prioritize desktop 1280×720 and sensible layout at 390px width; do not let mobile styling break desktop.
+Never let both agents modify the same tree. Do not autonomously continue to the next milestone.
 
-## Working protocol: one milestone at a time
-1. Read `AGENTS.md` and `PLAN.md`. Identify the stage explicitly requested by the user.
-2. Inspect the existing repository and git status before editing. Preserve work already completed.
-3. Implement **only** the active stage. Do not pre-build later rooms or polish systems, even if tempting.
-4. Keep each stage small enough to review in one diff. Prefer understandable code over clever abstractions.
-5. Run available checks, e.g. `npm run build`, `npm test -- --run`, and a browser smoke test when possible. Report commands and outcomes truthfully; do not claim a test ran when it did not.
-6. Stop at the milestone gate. Report: changed files, what is now playable, checks run/results, known risks, a short manual playtest, and the next stage. Ask for the next stage rather than proceeding automatically.
-7. Commit one milestone at a time when authorized. Never reset, force-push, delete, or overwrite unrelated user changes.
+## Non-negotiables
+- Do not rewrite the React/TypeScript/Vite app or move to a new engine.
+- Preserve existing tile-grid movement, collision, puzzle logic, settings state, room progression and win/restart behavior unless a scoped V2 phase explicitly extends it.
+- Settings affect **only the in-game world**, not OS/browser settings.
+- No backend, auth, API keys, AI API, multiplayer, procedural generation, inventory, enemy AI, combat, game loop library, route framework, analytics or new component library.
+- Avoid new dependencies unless a demonstrable blocker requires one. Use CSS, local SVG and/or small existing assets; honor licenses and attribution.
+- Preserve the V1 rules: brightness >=70 reveals glyph; unmuted volume 55–75 inclusive enables resonator; interact binding K enables terminal; finale responds to *live* settings as well as completed flags.
+- Do not sacrifice a playable production build for artistic experiments. Back up the V1 working state with a branch/tag/commit first, with no destructive git commands.
 
-## File boundaries (target, not a reason to add empty files)
-```
-src/
-  app/App.tsx
-  game/types.ts
-  game/levels.ts
-  game/rules.ts
-  game/gameReducer.ts
-  components/WorldGrid.tsx
-  components/SettingsPanel.tsx
-  components/Hud.tsx
-  styles.css
-src/game/rules.test.ts
-```
-Keep stage-specific components colocated or merge small components when more readable. Do not create more than one state-management system. Data describing room layouts belongs in `levels.ts`, while predicates belong in `rules.ts`.
+## V2 experience contract
+- The game world is the dominant visual element, filling the browser viewport in a landscape composition; no permanently docked diagnostic dashboard.
+- Settings open as a diegetic *in-game overlay*, accessible by a visible button and Escape. Keep the environment visible so users can see settings change it immediately.
+- Small HUD only: chamber name/progress, current objective, contextual interaction hint, settings shortcut.
+- Make game objects legible at low in-game brightness. Brightness affects discoverable environmental elements, NOT basic accessibility or text readability.
+- Preserve keyboard support (WASD/arrows, interact current binding), on-screen interact button where appropriate, and pointer+keyboard-operable settings.
+- Prevent game movement when controls/inputs/settings overlay are focused or open. Escape closes overlay; return focus sensibly. Never steal Tab in a way that breaks normal keyboard accessibility.
+- Opening cinematic must be short, skippable, and respect `prefers-reduced-motion`; no autoplay sound before a user gesture.
+- Give clues, not literal walkthroughs or hard-coded solution text in the persistent HUD. Ensure a player can still solve puzzles without guessing undocumented rules.
+- Avoid unwinnable states/softlocks when the world changes due to settings. Every room must be traversable from a fresh run.
+- Keep responsive behavior sane, but desktop browser at 1280x720 is priority. Mobile need not grow a new virtual-joystick implementation under deadline pressure.
 
-## Gameplay invariants
-- Current room and position must always be valid; walls block movement.
-- Player advances only through its room's solved exit condition.
-- Brightness, volume, mute, and interaction binding retain their values between rooms.
-- Stage 1: brightness >= 70 reveals the hidden glyph; player must stand adjacent and interact to unlock.
-- Stage 2: volume in [55, 75] and mute OFF allow activation of the resonator when adjacent; wrong settings provide feedback.
-- Stage 3: interact binding must be `K` to activate the terminal when adjacent; tell the player the required key diegetically.
-- Finale: completed puzzle flags plus valid live settings must permit escape; changing a required setting away from the correct value should visibly invalidate that condition until restored.
-- The exact tile layouts can change as long as each room has a clear, fair, navigable path and these invariants hold.
-- No timers, death states, or randomization. The game must never become unwinnable.
-- Avoid stale state in event listeners. Ignore movement hotkeys while a slider/select or other interactive input is focused, unless explicitly handled safely.
+## Aesthetic rules
+- Keep V1's restrained industrial palette (charcoal, warm off-white, dusty sage, warning orange) but replace dashboard/cards/diagnostic forms as main screen with an atmospheric playable scene.
+- Distinctive and intentional, not generic AI-app styling: no gradients just for decoration, glassmorphism, stock imagery, fake cyberpunk clutter, emoji iconography or dozen floating UI panels.
+- Game world uses layered scene composition: strong player silhouette, unmistakable interactive props, legible doors, environmental depth, subtle movement/sound. Motion conveys state changes.
+- Smooth enough for normal desktop hardware, with fast interactions and no extended unskippable transitions.
 
-## Review agent contract
-The reviewer is **read-only by default**. It must inspect actual files/diffs, assess playability and rule correctness, run checks if tools allow, and report concrete, reproducible problems. Do not modify code, automatically refactor, or expand scope. Prioritize:
-- **P0** prevents starting, completing, building, or submitting.
-- **P1** confuses/blocks major gameplay or violates the design/scope contract.
-- **P2** polish/accessibility/minor performance, fix only if time permits.
-Give exact file paths, reproduction steps, expected/actual results, and a minimal repair suggestion. Also flag any unverified assumptions. If no substantive findings, say so.
+## Every milestone protocol
+1. Read `AGENTS.md`, `PLAN.md`, `V2_PLAN.md`, and the single selected prompt in `V2_PROMPTS.md`.
+2. Inspect actual source structure, relevant tests and git status; never assume file paths from an earlier plan are still correct.
+3. Implement only the requested V2 phase. Prefer the smallest coherent diff.
+4. Run `npm run build`, existing test command, and browser/manual smoke check where tooling permits. Be precise about what was not run.
+5. Give changed file list, functionality, check results, short reproduction/playtest steps, remaining risks, and STOP.
+6. If a P0/P1 issue appears, repair within the same phase before advancing. No unasked-for extra features.
 
-## Definition of done
-A stranger can open the deployed URL, understand controls within 20 seconds, complete all three puzzles and the finale in 3–5 minutes without outside help, and see a clear completion screen. The game runs in a production build; links and documentation are ready for Devpost before the deadline.
+## Severity for read-only review
+- **P0**: fails to boot, run, complete, build, or submit; serious regression/softlock.
+- **P1**: major gameplay/input/clarity issue, broken visual hierarchy, inaccessible key path, user cannot intuit objective.
+- **P2**: polish/nice-to-have. Never expand scope to fix P2 at the expense of release.
+
+## Release safety
+- Existing V1 Stage 6 must run **after** V2 is feature-frozen and after a read-only review/repair pass. No new mechanics in Stage 6.
+- External deadline: Nov 8, 2026, 09:30 IST. Hard feature stop: **06:00 IST**. Target actual submission: **08:00 IST** (buffer is mandatory). These times are planning gates, not excuses to skip an early submission if ready.
+- A complete playable V1 with modest V2 additions is better than a broken V2. Preserve a revertible stable baseline.

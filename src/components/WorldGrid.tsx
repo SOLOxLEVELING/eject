@@ -5,698 +5,209 @@ import {
   formatBindKey,
   getAudioStatus,
   getFinaleDiagnostics,
-  getUnmetFinaleConditions,
   isAdjacent,
   isGlyphVisible,
   isRoomExitUnlocked,
   isTerminalKeyAuthorized,
   isTileLocallyLit,
 } from '../game/rules';
-import type {
-  AudioStatus,
-  Coordinates,
-  Direction,
-  Progress,
-  RoomBlueprint,
-  Settings,
-  TileKind,
-} from '../game/types';
+import type { Coordinates, Direction, Progress, RoomBlueprint, Settings } from '../game/types';
 
 type WorldGridProps = {
   chamber: RoomBlueprint;
   position: Coordinates;
   settings: Settings;
   progress: Progress;
-  feedback: string;
   onMove: (direction: Direction) => void;
   onInteract: () => void;
 };
 
-function getTileLabel(
-  chamberId: RoomBlueprint['id'],
-  tile: TileKind,
-  isPlayerHere: boolean,
-  glyphVisible: boolean,
-  glyphActivated: boolean,
-  audioStatus: AudioStatus,
-  resonatorActivated: boolean,
-  keyAuthorized: boolean,
-  terminalActivated: boolean,
-  exitUnlocked: boolean,
-  x: number,
-  y: number,
-): string {
-  if (isPlayerHere) {
-    return `Operator position (${x}, ${y})`;
-  }
-  switch (tile) {
-    case 'wall':
-      return `Bulkhead wall (${x}, ${y})`;
-    case 'node':
-      if (chamberId === 'display') {
-        if (glyphActivated) {
-          return `Activated optical glyph (${x}, ${y})`;
-        }
-        return glyphVisible
-          ? `Revealed optical glyph (${x}, ${y})`
-          : `Obscured optical socket (${x}, ${y})`;
-      }
-      if (chamberId === 'audio') {
-        if (resonatorActivated) {
-          return `Activated acoustic resonator (${x}, ${y})`;
-        }
-        return `Acoustic resonator [${audioStatus}] (${x}, ${y})`;
-      }
-      if (chamberId === 'controls') {
-        if (terminalActivated) {
-          return `Authorized keybind terminal (${x}, ${y})`;
-        }
-        return keyAuthorized
-          ? `Keybind terminal [K: AUTHORIZED] (${x}, ${y})`
-          : `Keybind terminal [E: REVOKED / K: AUTHORIZED] (${x}, ${y})`;
-      }
-      return exitUnlocked
-        ? `System interlock core [VERIFIED] (${x}, ${y})`
-        : `System interlock core [FAULT] (${x}, ${y})`;
-    case 'exit':
-      return exitUnlocked
-        ? `Unlocked sector exit (${x}, ${y})`
-        : `Locked sector exit (${x}, ${y})`;
-    case 'floor':
-    default:
-      return `Chamber floor (${x}, ${y})`;
-  }
-}
-
-export function WorldGrid({
-  chamber,
-  position,
-  settings,
-  progress,
-  feedback,
-  onMove,
-  onInteract,
-}: WorldGridProps) {
+export function WorldGrid({ chamber, position, settings, progress, onMove, onInteract }: WorldGridProps) {
   const bindLabel = formatBindKey(settings.interactKey);
-  const columns = Array.from({ length: chamber.width }, (_, idx) =>
-    String(idx).padStart(2, '0'),
-  );
-
   const glyphVisible = isGlyphVisible(settings.brightness);
-  const glyphActivated = progress.glyphActivated;
   const audioStatus = getAudioStatus(settings);
   const audioStable = audioStatus === 'STABLE';
-  const resonatorActivated = progress.resonatorActivated;
   const keyAuthorized = isTerminalKeyAuthorized(settings.interactKey);
-  const terminalActivated = progress.terminalActivated;
-
   const exitUnlocked = isRoomExitUnlocked(chamber.id, progress, settings);
   const adjacentToNode = isAdjacent(position, chamber.nodePosition);
-
+  const adjacentToExit = isAdjacent(position, chamber.exitPosition);
   const finaleDiagnostics = getFinaleDiagnostics(settings, progress);
-  const unmetFinale = getUnmetFinaleConditions(settings, progress);
-  const verifiedCount = finaleDiagnostics.filter((d) => d.ready).length;
-
+  const verifiedCount = finaleDiagnostics.filter((item) => item.ready).length;
   const canInteractNow =
-    (chamber.id === 'display' &&
-      canActivateGlyph(position, chamber.nodePosition, settings, progress)) ||
-    (chamber.id === 'audio' &&
-      canActivateResonator(
-        position,
-        chamber.nodePosition,
-        settings,
-        progress,
-      )) ||
-    (chamber.id === 'controls' &&
-      canActivateTerminal(position, chamber.nodePosition, settings, progress));
+    (chamber.id === 'display' && canActivateGlyph(position, chamber.nodePosition, settings, progress)) ||
+    (chamber.id === 'audio' && canActivateResonator(position, chamber.nodePosition, settings, progress)) ||
+    (chamber.id === 'controls' && canActivateTerminal(position, chamber.nodePosition, settings, progress));
+  const showInteract = adjacentToNode && chamber.id !== 'finale' && !exitUnlocked;
 
-  // World-only darkness veil tied to in-game brightness setting;
-  // modifies only the chamber grid, keeping walls and UI controls readable.
-  const veilOpacity =
-    chamber.id === 'display'
-      ? Number(
-          (((Math.max(0, 75 - settings.brightness) / 75) * 0.48).toFixed(2)),
-        )
-      : Number((((100 - settings.brightness) / 100) * 0.22).toFixed(2));
+  // Darkness belongs to the environment; the operator, props and HUD stay readable.
+  const veilOpacity = chamber.id === 'display'
+    ? (Math.max(0, 75 - settings.brightness) / 75) * 0.48
+    : ((100 - settings.brightness) / 100) * 0.22;
 
   let contextualHint = '';
-  if (chamber.id === 'display') {
-    if (canInteractNow) {
-      contextualHint = `ADJACENT TO OPTICAL GLYPH // PRESS [${bindLabel}] OR CLICK INTERACT TO UNLOCK EXIT`;
-    } else if (adjacentToNode && !glyphVisible && !glyphActivated) {
-      contextualHint =
-        'OPTICAL SOCKET OBSCURED // SET BRIGHTNESS TO ≥ 70% IN SYSTEM SETTINGS TO REVEAL';
-    } else if (glyphActivated) {
-      contextualHint =
-        'EXIT LOCK DISENGAGED // WALK ONTO THE OPEN EXIT GATE AT (X:08, Y:03)';
-    } else if (glyphVisible) {
-      contextualHint = `OPTICAL GLYPH REVEALED AT (X:06, Y:01) // MOVE ADJACENT AND PRESS [${bindLabel}]`;
-    } else {
-      contextualHint = `LOW LUMINANCE (${settings.brightness}%) // MOVE TO EXPLORE OR RAISE BRIGHTNESS ≥ 70% TO REVEAL GLYPH`;
-    }
-  } else if (chamber.id === 'audio') {
-    if (canInteractNow) {
-      contextualHint = `ADJACENT TO RESONATOR [STABLE] // PRESS [${bindLabel}] OR CLICK INTERACT TO UNLOCK EXIT`;
-    } else if (resonatorActivated) {
-      contextualHint =
-        'RESONANCE LOCK DISENGAGED // WALK ONTO THE OPEN EXIT GATE AT (X:08, Y:03)';
-    } else if (adjacentToNode) {
-      if (audioStatus === 'MUTED') {
-        contextualHint =
-          'RESONATOR CLAMPED [MUTED] // SWITCH MUTE OFF AND TUNE VOLUME TO 55–75% INCLUSIVE';
-      } else {
-        contextualHint = `RESONATOR DESYNC [${audioStatus}: ${settings.volume}%] // TUNE VOLUME TO 55–75% WITH MUTE OFF`;
-      }
-    } else if (audioStable) {
-      contextualHint = `RESONANCE STABLE (${settings.volume}% UNMUTED) // STAND ADJACENT TO RESONATOR AT (X:04, Y:02) AND PRESS [${bindLabel}]`;
-    } else {
-      contextualHint = `CLUE: STABLE BAND 55–75% UNMUTED [NOW: ${audioStatus}] // TUNE AUDIO & APPROACH RESONATOR (04, 02)`;
-    }
-  } else if (chamber.id === 'controls') {
-    if (canInteractNow) {
-      contextualHint =
-        'ADJACENT TO TERMINAL [K: AUTHORIZED] // PRESS [K] OR CLICK INTERACT TO UNLOCK EXIT';
-    } else if (terminalActivated) {
-      contextualHint =
-        'TERMINAL AUTHORIZED // WALK ONTO THE OPEN EXIT GATE AT (X:08, Y:03)';
-    } else if (adjacentToNode) {
-      contextualHint = `TERMINAL REJECTS [${bindLabel}] (E: REVOKED / K: AUTHORIZED) // REBIND INTERACT TO [K] IN SETTINGS`;
-    } else if (keyAuthorized) {
-      contextualHint =
-        'INTERACT BOUND TO [K] (AUTHORIZED) // STAND ADJACENT TO TERMINAL AT (X:05, Y:02) AND PRESS [K]';
-    } else {
-      contextualHint =
-        'CONSOLE NOTICE: E: REVOKED / K: AUTHORIZED // REBIND INTERACT KEY TO [K] AND APPROACH TERMINAL (05, 02)';
-    }
-  } else {
+  if (adjacentToNode) {
     if (exitUnlocked) {
-      contextualHint =
-        'ALL THREE INTERLOCKS VERIFIED // STEP ONTO THE OPEN ESCAPE GATE AT (X:08, Y:03) TO EJECT';
+      contextualHint = 'Linked. The door is open.';
+    } else if (chamber.id === 'display') {
+      contextualHint = glyphVisible ? 'Optical glyph within reach.' : 'A faint trace. It needs more light.';
+    } else if (chamber.id === 'audio') {
+      contextualHint = `Resonator: ${audioStatus.toLowerCase()}.`;
+    } else if (chamber.id === 'controls') {
+      contextualHint = keyAuthorized ? 'Terminal: authorized input.' : 'Terminal notice: E revoked / K authorized.';
     } else {
-      contextualHint = `FINAL GATE LOCKED // UNMET: ${unmetFinale.join(' · ')}`;
+      contextualHint = `${verifiedCount} of 3 locks aligned. Check the world parameters.`;
     }
+  } else if (adjacentToExit) {
+    contextualHint = exitUnlocked ? 'The way is open.' : 'The door is still sealed.';
   }
 
+  const nodeLabel = {
+    display: progress.glyphActivated ? 'Linked optical glyph' : glyphVisible ? 'Revealed optical glyph' : 'Faint optical socket',
+    audio: progress.resonatorActivated ? 'Linked resonator' : `Resonator: ${audioStatus}`,
+    controls: progress.terminalActivated ? 'Authorized terminal' : 'Terminal: E revoked, K authorized',
+    finale: `System gate: ${verifiedCount} of 3 locks aligned`,
+  }[chamber.id];
+  const nodeCode = {
+    display: glyphVisible ? 'GLYPH' : '?',
+    audio: audioStatus,
+    controls: 'E: REVOKED',
+    finale: `${verifiedCount}/3`,
+  }[chamber.id];
+
   return (
-    <section
-      key={chamber.id}
-      className="viewport-panel"
-      aria-label="Sector Chamber Viewport"
-      data-room={chamber.id}
-    >
-      <div className="panel-header">
-        <div className="panel-heading-group">
-          <span className="panel-index">
-            {chamber.code} // 09×07 MATRIX
-          </span>
-          <h2 className="panel-title">{chamber.title}</h2>
-        </div>
-        <div className="viewport-tags">
-          <span
-            className={`tag-pill ${exitUnlocked ? 'tag-ok' : 'tag-warn'}`}
-            data-testid="exit-lock-status"
-          >
-            {exitUnlocked ? 'EXIT LOCK: DISENGAGED' : 'EXIT LOCK: ENGAGED'}
-          </span>
-          {chamber.id === 'audio' ? (
-            <span
-              className={`tag-pill ${audioStable ? 'tag-ok' : 'tag-warn'}`}
-              data-testid="viewport-audio-tag"
-            >
-              RESONANCE: {audioStatus} (55–75%)
-            </span>
-          ) : chamber.id === 'controls' ? (
-            <span
-              className={`tag-pill ${keyAuthorized ? 'tag-ok' : 'tag-warn'}`}
-              data-testid="viewport-controls-tag"
-            >
-              E: REVOKED / K: AUTHORIZED
-            </span>
-          ) : chamber.id === 'finale' ? (
-            <span
-              className={`tag-pill ${exitUnlocked ? 'tag-ok' : 'tag-warn'}`}
-              data-testid="viewport-finale-tag"
-            >
-              INTERLOCKS: {verifiedCount}/3 VERIFIED
-            </span>
-          ) : (
-            <span className="tag-pill" data-testid="viewport-luminance-tag">
-              LUM FIELD: {String(settings.brightness).padStart(3, '0')}%
-            </span>
-          )}
-        </div>
-      </div>
+    <section className="room-scene" aria-label={chamber.title} data-room={chamber.id}>
+      <div
+        className="world-grid"
+        role="grid"
+        aria-label={`${chamber.title} chamber`}
+        style={{
+          gridTemplateColumns: `repeat(${chamber.width}, minmax(0, 1fr))`,
+          gridTemplateRows: `repeat(${chamber.height}, minmax(0, 1fr))`,
+        }}
+      >
+        {chamber.tiles.map((row, y) => (
+          <div key={y} className="world-row" role="row">
+            {row.map((tile, x) => {
+              const isPlayer = position.x === x && position.y === y;
+              const locallyLit = chamber.id !== 'display' || isTileLocallyLit(position, { x, y }, settings.brightness);
+              const isNode = tile === 'node';
+              const nodeActivated = isNode && (
+                (chamber.id === 'display' && progress.glyphActivated) ||
+                (chamber.id === 'audio' && progress.resonatorActivated) ||
+                (chamber.id === 'controls' && progress.terminalActivated) ||
+                (chamber.id === 'finale' && exitUnlocked)
+              );
+              const nodeRevealed = isNode && !nodeActivated && (
+                (chamber.id === 'display' && glyphVisible) ||
+                (chamber.id === 'audio' && audioStable) ||
+                (chamber.id === 'controls' && keyAuthorized)
+              );
+              const nodeObscured = isNode && chamber.id === 'display' && !glyphVisible && !nodeActivated;
+              const nodeUnstable = isNode && !nodeActivated && !nodeRevealed && !nodeObscured;
+              const tileClasses = [
+                'world-tile', `tile-${tile}`,
+                isPlayer ? 'tile-player' : '',
+                !locallyLit && tile !== 'wall' && tile !== 'exit' ? 'tile-fogged' : 'tile-lit',
+                nodeObscured ? 'tile-node-obscured' : '',
+                nodeRevealed ? 'tile-node-revealed' : '',
+                nodeUnstable ? 'tile-node-unstable' : '',
+                nodeActivated ? 'tile-node-activated' : '',
+                isNode && canInteractNow ? 'tile-node-ready' : '',
+                tile === 'exit' ? exitUnlocked ? 'tile-exit-unlocked' : 'tile-exit-locked' : '',
+              ].filter(Boolean).join(' ');
+              const label = isPlayer ? 'Operator OP-01' : isNode ? nodeLabel
+                : tile === 'exit' ? exitUnlocked ? 'Open exit' : 'Sealed exit'
+                  : tile === 'wall' ? 'Bulkhead wall' : 'Floor';
 
-      <div className="viewport-stage-frame">
-        {chamber.id === 'finale' && (
-          <div
-            className="finale-diagnostics-bar"
-            data-testid="finale-diagnostics"
-            aria-label="Finale Three-Part System Diagnostics"
-          >
-            {finaleDiagnostics.map((item) => (
-              <div
-                key={item.id}
-                className={`finale-diag-card ${
-                  item.ready ? 'diag-ready' : 'diag-fault'
-                }`}
-                data-testid={`finale-check-${item.id}`}
-                data-ready={item.ready}
-              >
-                <div className="finale-diag-top">
-                  <span className="finale-diag-label">{item.label}</span>
-                  <span className="finale-diag-state">
-                    {item.ready ? 'PASS' : 'FAULT'}
-                  </span>
+              return (
+                <div
+                  key={`${x}-${y}`}
+                  role="gridcell"
+                  aria-label={label}
+                  className={tileClasses}
+                  data-coords={`${x},${y}`}
+                  data-tile={tile}
+                  data-glyph-state={isNode && chamber.id === 'display' ? nodeActivated ? 'activated' : nodeRevealed ? 'revealed' : 'hidden' : undefined}
+                  data-resonator-state={isNode && chamber.id === 'audio' ? nodeActivated ? 'activated' : audioStable ? 'stable' : 'unstable' : undefined}
+                  data-terminal-state={isNode && chamber.id === 'controls' ? nodeActivated ? 'activated' : keyAuthorized ? 'authorized' : 'revoked' : undefined}
+                  data-exit-state={tile === 'exit' ? exitUnlocked ? 'unlocked' : 'locked' : undefined}
+                >
+                  {tile === 'wall' && <span className="tile-wall-mark" aria-hidden="true" />}
+                  {tile === 'floor' && !isPlayer && <span className="tile-floor-cross" aria-hidden="true" />}
+                  {isNode && (
+                    <div className={`tile-entity ${nodeObscured ? 'tile-entity-obscured' : nodeUnstable ? 'tile-entity-exit' : 'tile-entity-node'}`} aria-hidden="true">
+                      <span className={nodeObscured ? 'entity-obscured-dot' : `entity-glyph-diamond ${nodeActivated ? 'diamond-active' : nodeUnstable ? 'diamond-unstable' : ''}`} />
+                      <span className="entity-code">
+                        {nodeActivated ? 'LINKED' : nodeCode}
+                      </span>
+                      {chamber.id === 'controls' && !nodeActivated && <span className="entity-code">K: AUTHORIZED</span>}
+                    </div>
+                  )}
+                  {tile === 'exit' && (
+                    <>
+                      <div className={`tile-entity ${exitUnlocked ? 'tile-entity-exit-open' : 'tile-entity-exit'}`} aria-hidden="true">
+                        <span className={exitUnlocked ? 'entity-open-bar' : 'entity-lock-bar'} />
+                        <span className="entity-code">{exitUnlocked ? 'OPEN' : 'SEALED'}</span>
+                      </div>
+                      {chamber.id === 'finale' && (
+                        <div className="gate-locks" role="group" aria-label="Live gate locks">
+                          {finaleDiagnostics.map((item) => (
+                            <span key={item.id} className="gate-lock" role="img" aria-label={`${item.id}: ${item.detail}`} title={`${item.id}: ${item.detail}`} data-testid={`finale-check-${item.id}`} data-ready={item.ready} />
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                  {isPlayer && (
+                    <div className="tile-entity tile-entity-player" aria-hidden="true">
+                      <span className="player-core" />
+                      <span className="entity-code">OP-01</span>
+                    </div>
+                  )}
                 </div>
-                <span className="finale-diag-detail">{item.detail}</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
-        )}
-
-        <div className="coord-ruler-top" aria-hidden="true">
-          <span className="coord-corner">Y\X</span>
-          {columns.map((col) => (
-            <span key={col} className="coord-cell">
-              {col}
-            </span>
-          ))}
-        </div>
-
-        <div className="viewport-matrix-row">
-          <div className="coord-ruler-left" aria-hidden="true">
-            {chamber.tiles.map((_, rowIdx) => (
-              <span key={rowIdx} className="coord-cell">
-                {String(rowIdx).padStart(2, '0')}
-              </span>
-            ))}
-          </div>
-
-          <div
-            className="world-grid"
-            role="grid"
-            aria-label={`${chamber.title} 9 by 7 tile grid`}
-            style={{
-              gridTemplateColumns: `repeat(${chamber.width}, minmax(0, 1fr))`,
-            }}
-          >
-            {chamber.tiles.map((row, y) =>
-              row.map((tile, x) => {
-                const isPlayer = position.x === x && position.y === y;
-                const cellKey = `${x}-${y}`;
-                const locallyLit =
-                  chamber.id !== 'display' ||
-                  isTileLocallyLit(position, { x, y }, settings.brightness);
-
-                const isDisplayNode =
-                  chamber.id === 'display' && tile === 'node';
-                const isAudioNode = chamber.id === 'audio' && tile === 'node';
-                const isControlsNode =
-                  chamber.id === 'controls' && tile === 'node';
-                const isFinaleNode = chamber.id === 'finale' && tile === 'node';
-
-                const isNodeObscured =
-                  isDisplayNode && !glyphVisible && !glyphActivated;
-                const isNodeRevealed =
-                  (isDisplayNode && glyphVisible && !glyphActivated) ||
-                  (isAudioNode && audioStable && !resonatorActivated) ||
-                  (isControlsNode && keyAuthorized && !terminalActivated) ||
-                  (isFinaleNode && exitUnlocked);
-                const isNodeUnstable =
-                  (isAudioNode && !audioStable && !resonatorActivated) ||
-                  (isControlsNode && !keyAuthorized && !terminalActivated) ||
-                  (isFinaleNode && !exitUnlocked);
-                const isNodeActivated =
-                  (isDisplayNode && glyphActivated) ||
-                  (isAudioNode && resonatorActivated) ||
-                  (isControlsNode && terminalActivated) ||
-                  (isFinaleNode && exitUnlocked);
-
-                const tileClasses = [
-                  'world-tile',
-                  `tile-${tile}`,
-                  isPlayer ? 'tile-player' : '',
-                  !locallyLit && tile !== 'wall' && tile !== 'exit'
-                    ? 'tile-fogged'
-                    : 'tile-lit',
-                  isNodeObscured ? 'tile-node-obscured' : '',
-                  isNodeRevealed ? 'tile-node-revealed' : '',
-                  isNodeUnstable ? 'tile-node-unstable' : '',
-                  isNodeActivated ? 'tile-node-activated' : '',
-                  canInteractNow &&
-                  (isDisplayNode || isAudioNode || isControlsNode)
-                    ? 'tile-node-ready'
-                    : '',
-                  tile === 'exit'
-                    ? exitUnlocked
-                      ? 'tile-exit-unlocked'
-                      : 'tile-exit-locked'
-                    : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ');
-
-                return (
-                  <div
-                    key={cellKey}
-                    role="gridcell"
-                    aria-label={getTileLabel(
-                      chamber.id,
-                      tile,
-                      isPlayer,
-                      glyphVisible,
-                      glyphActivated,
-                      audioStatus,
-                      resonatorActivated,
-                      keyAuthorized,
-                      terminalActivated,
-                      exitUnlocked,
-                      x,
-                      y,
-                    )}
-                    className={tileClasses}
-                    data-coords={`${x},${y}`}
-                    data-tile={tile}
-                    data-glyph-state={
-                      isDisplayNode
-                        ? isNodeActivated
-                          ? 'activated'
-                          : isNodeRevealed
-                            ? 'revealed'
-                            : 'hidden'
-                        : undefined
-                    }
-                    data-resonator-state={
-                      isAudioNode
-                        ? resonatorActivated
-                          ? 'activated'
-                          : audioStable
-                            ? 'stable'
-                            : 'unstable'
-                        : undefined
-                    }
-                    data-terminal-state={
-                      isControlsNode
-                        ? terminalActivated
-                          ? 'activated'
-                          : keyAuthorized
-                            ? 'authorized'
-                            : 'revoked'
-                        : undefined
-                    }
-                    data-exit-state={
-                      tile === 'exit'
-                        ? exitUnlocked
-                          ? 'unlocked'
-                          : 'locked'
-                        : undefined
-                    }
-                  >
-                    {tile === 'wall' && (
-                      <span className="tile-wall-mark" aria-hidden="true" />
-                    )}
-
-                    {tile === 'floor' && !isPlayer && (
-                      <span className="tile-floor-cross" aria-hidden="true" />
-                    )}
-
-                    {tile === 'node' && chamber.id === 'display' && (
-                      <>
-                        {isNodeObscured ? (
-                          <div
-                            className="tile-entity tile-entity-obscured"
-                            aria-hidden="true"
-                          >
-                            <span className="entity-obscured-dot" />
-                            <span className="entity-code">
-                              {adjacentToNode ? 'DIM' : '?'}
-                            </span>
-                          </div>
-                        ) : (
-                          <div
-                            className="tile-entity tile-entity-node"
-                            aria-hidden="true"
-                          >
-                            <span
-                              className={`entity-glyph-diamond ${
-                                isNodeActivated ? 'diamond-active' : ''
-                              }`}
-                            />
-                            <span className="entity-code">
-                              {isNodeActivated ? 'LINKED' : 'GLYPH'}
-                            </span>
-                          </div>
-                        )}
-                      </>
-                    )}
-
-                    {tile === 'node' && chamber.id === 'audio' && (
-                      <div
-                        className={`tile-entity ${
-                          resonatorActivated || audioStable
-                            ? 'tile-entity-node'
-                            : 'tile-entity-exit'
-                        }`}
-                        aria-hidden="true"
-                      >
-                        <span
-                          className={`entity-glyph-diamond ${
-                            resonatorActivated
-                              ? 'diamond-active'
-                              : !audioStable
-                                ? 'diamond-unstable'
-                                : ''
-                          }`}
-                        />
-                        <span className="entity-code">
-                          {resonatorActivated
-                            ? 'LINKED'
-                            : audioStatus === 'STABLE'
-                              ? 'STABLE'
-                              : audioStatus === 'MUTED'
-                                ? 'MUTED'
-                                : audioStatus === 'TOO LOW'
-                                  ? 'LOW'
-                                  : 'HIGH'}
-                        </span>
-                      </div>
-                    )}
-
-                    {tile === 'node' && chamber.id === 'controls' && (
-                      <div
-                        className={`tile-entity ${
-                          terminalActivated || keyAuthorized
-                            ? 'tile-entity-node'
-                            : 'tile-entity-exit'
-                        }`}
-                        aria-hidden="true"
-                      >
-                        <span
-                          className={`entity-glyph-diamond ${
-                            terminalActivated
-                              ? 'diamond-active'
-                              : !keyAuthorized
-                                ? 'diamond-unstable'
-                                : ''
-                          }`}
-                        />
-                        <span className="entity-code">
-                          {terminalActivated
-                            ? 'LINKED'
-                            : keyAuthorized
-                              ? 'AUTH [K]'
-                              : 'REVOKED'}
-                        </span>
-                      </div>
-                    )}
-
-                    {tile === 'node' && chamber.id === 'finale' && (
-                      <div
-                        className={`tile-entity ${
-                          exitUnlocked ? 'tile-entity-node' : 'tile-entity-exit'
-                        }`}
-                        aria-hidden="true"
-                      >
-                        <span
-                          className={`entity-glyph-diamond ${
-                            exitUnlocked ? 'diamond-active' : 'diamond-unstable'
-                          }`}
-                        />
-                        <span className="entity-code">
-                          {exitUnlocked ? 'VERIFIED' : `${verifiedCount}/3 OK`}
-                        </span>
-                      </div>
-                    )}
-
-                    {tile === 'exit' && (
-                      <div
-                        className={`tile-entity ${
-                          exitUnlocked
-                            ? 'tile-entity-exit-open'
-                            : 'tile-entity-exit'
-                        }`}
-                        aria-hidden="true"
-                      >
-                        <span
-                          className={
-                            exitUnlocked
-                              ? 'entity-open-bar'
-                              : 'entity-lock-bar'
-                          }
-                        />
-                        <span className="entity-code">
-                          {exitUnlocked ? 'OPEN' : 'LOCKED'}
-                        </span>
-                      </div>
-                    )}
-
-                    {isPlayer && (
-                      <div
-                        className="tile-entity tile-entity-player"
-                        aria-hidden="true"
-                      >
-                        <span className="player-core" />
-                        <span className="entity-code">OP-01</span>
-                      </div>
-                    )}
-                  </div>
-                );
-              }),
-            )}
-
-            <div
-              className="world-luminance-veil"
-              aria-hidden="true"
-              style={{ opacity: veilOpacity }}
-            />
-          </div>
-        </div>
-
-        <div
-          className="viewport-context-bar"
-          data-ready={canInteractNow || (chamber.id === 'finale' && exitUnlocked)}
-        >
-          <span className="context-indicator" aria-hidden="true" />
-          <span className="context-text" data-testid="viewport-context-hint">
-            {contextualHint}
-          </span>
-        </div>
-
-        <div className="viewport-legend" aria-label="Chamber Map Legend">
-          <span className="legend-item" data-testid="operator-coords">
-            <i className="legend-swatch swatch-player" aria-hidden="true" />
-            OP-01 Operator (X:0{position.x} Y:0{position.y})
-          </span>
-          <span className="legend-item">
-            <i
-              className={`legend-swatch ${
-                (chamber.id === 'audio' && !resonatorActivated && !audioStable) ||
-                (chamber.id === 'controls' && !terminalActivated && !keyAuthorized) ||
-                (chamber.id === 'finale' && !exitUnlocked)
-                  ? 'swatch-exit'
-                  : 'swatch-node'
-              }`}
-              aria-hidden="true"
-            />
-            {chamber.id === 'display'
-              ? glyphActivated
-                ? 'Optical Glyph [Linked]'
-                : glyphVisible
-                  ? 'Optical Glyph [Revealed]'
-                  : 'Optical Glyph [Obscured <70%]'
-              : chamber.id === 'audio'
-                ? resonatorActivated
-                  ? 'Resonator [Linked]'
-                  : `Resonator [${audioStatus}]`
-                : chamber.id === 'controls'
-                  ? terminalActivated
-                    ? 'Terminal [Linked]'
-                    : keyAuthorized
-                      ? 'Terminal [K: Authorized]'
-                      : 'Terminal [E: Revoked / K: Auth]'
-                  : `Interlock Core [${verifiedCount}/3 Verified]`}
-          </span>
-          <span className="legend-item">
-            <i
-              className={`legend-swatch ${
-                exitUnlocked ? 'swatch-node' : 'swatch-exit'
-              }`}
-              aria-hidden="true"
-            />
-            Bulkhead Gate [{exitUnlocked ? 'Open' : 'Locked'}]
-          </span>
-        </div>
+        ))}
+        <div className="world-luminance-veil" aria-hidden="true" style={{ opacity: veilOpacity }} />
       </div>
 
-      <footer className="viewport-footer">
-        <div className="telemetry-log" role="status" aria-live="polite">
-          <span className="telemetry-prefix">SYS.LOG //</span>
-          <span className="telemetry-text" data-testid="telemetry-feedback">
-            {feedback}
-          </span>
-        </div>
-
-        <div className="viewport-controls">
-          <div
-            className="onscreen-dpad"
-            role="group"
-            aria-label="On-screen movement controls"
-          >
-            <button
-              type="button"
-              className="dpad-btn"
-              aria-label="Move Left"
-              title="Move Left (A / Left Arrow)"
-              onClick={() => onMove('left')}
-              onPointerUp={(e) => e.currentTarget.blur()}
-            >
-              ←
-            </button>
-            <button
-              type="button"
-              className="dpad-btn"
-              aria-label="Move Up"
-              title="Move Up (W / Up Arrow)"
-              onClick={() => onMove('up')}
-              onPointerUp={(e) => e.currentTarget.blur()}
-            >
-              ↑
-            </button>
-            <button
-              type="button"
-              className="dpad-btn"
-              aria-label="Move Down"
-              title="Move Down (S / Down Arrow)"
-              onClick={() => onMove('down')}
-              onPointerUp={(e) => e.currentTarget.blur()}
-            >
-              ↓
-            </button>
-            <button
-              type="button"
-              className="dpad-btn"
-              aria-label="Move Right"
-              title="Move Right (D / Right Arrow)"
-              onClick={() => onMove('right')}
-              onPointerUp={(e) => e.currentTarget.blur()}
-            >
-              →
-            </button>
+      <footer className="scene-controls">
+        <div className="movement-controls">
+          <span className="movement-hint">Move <kbd>WASD / Arrows</kbd></span>
+          <div className="onscreen-dpad" role="group" aria-label="On-screen movement controls">
+            {([
+              ['left', '←'], ['up', '↑'], ['down', '↓'], ['right', '→'],
+            ] as const).map(([direction, symbol]) => (
+              <button
+                key={direction}
+                type="button"
+                className="dpad-btn"
+                aria-label={`Move ${direction}`}
+                onClick={(event) => {
+                  onMove(direction);
+                  if (event.detail > 0) event.currentTarget.blur();
+                }}
+              >{symbol}</button>
+            ))}
           </div>
-
-          <button
-            type="button"
-            onClick={onInteract}
-            onPointerUp={(e) => e.currentTarget.blur()}
-            className={`console-btn interact-action-btn ${
-              canInteractNow ? 'interact-btn-ready' : ''
-            }`}
-            aria-label={`Interact using bound key ${bindLabel}`}
-            data-testid="onscreen-interact-btn"
-          >
-            Interact <kbd>[{bindLabel}]</kbd>
-          </button>
+        </div>
+        <div className="nearby-interaction">
+          <span className="context-text" role="status" data-testid="viewport-context-hint">{contextualHint}</span>
+          {showInteract && (
+            <button
+              type="button"
+              onClick={(event) => {
+                onInteract();
+                if (event.detail > 0) event.currentTarget.blur();
+              }}
+              className={`console-btn interact-action-btn ${canInteractNow ? 'interact-btn-ready' : ''}`}
+              aria-label={`Interact using bound key ${bindLabel}`}
+              data-testid="onscreen-interact-btn"
+            >
+              Interact <kbd>{bindLabel}</kbd>
+            </button>
+          )}
         </div>
       </footer>
     </section>
