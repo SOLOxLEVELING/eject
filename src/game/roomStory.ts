@@ -1,7 +1,7 @@
 import type { RoomId } from './types';
 
 export const ROOM_STORY: Record<RoomId, { entry: string; hint: string; success: string }> = {
-  display: { entry: 'I can barely see two steps ahead.', hint: 'Those markings only show when I raise the light.', success: 'There you are.' },
+  display: { entry: 'The game’s gone quiet. I can’t even hear myself.', hint: 'Those markings only show when I raise the light.', success: 'There you are.' },
   audio: { entry: 'Something in here is listening.', hint: 'Unmute, tune to 55–75, and activate. Then mute to cross.', success: 'The signal is latched. Now I need a silent crossing.' },
   controls: { entry: "It doesn't recognize my input.", hint: 'The terminal says K. My controls say E.', success: 'It listened.' },
   frame: { entry: 'Even the border feels solid.', hint: "What if the window wasn't a window?", success: 'The room got bigger.' },

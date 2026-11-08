@@ -9,9 +9,10 @@ import { WorldGrid } from './WorldGrid';
 type OpeningSequenceProps = {
   state: GameState;
   onComplete: () => void;
+  onSilenceBedroom: () => void;
 };
 
-export function OpeningSequence({ state, onComplete }: OpeningSequenceProps) {
+export function OpeningSequence({ state, onComplete, onSilenceBedroom }: OpeningSequenceProps) {
   const [{ shot, line }, setPosition] = useState({ shot: 0, line: 0 });
   const nextRef = useRef<HTMLButtonElement | null>(null);
   const beat = OPENING_BEATS[shot];
@@ -23,6 +24,9 @@ export function OpeningSequence({ state, onComplete }: OpeningSequenceProps) {
   }, [shot, line, lastLine, onComplete]);
 
   useEffect(() => nextRef.current?.focus({ preventScroll: true }), []);
+  useEffect(() => {
+    if (shot >= 2) onSilenceBedroom();
+  }, [shot, onSilenceBedroom]);
 
   useEffect(() => {
     // Share each beat's original time budget across its lines, including the silent pull.

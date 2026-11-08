@@ -40,18 +40,19 @@ kbd { font-family: var(--font-mono); font-size: 0.8em; }
 .last-session-title { position: relative; height: 100vh; height: 100dvh; min-height: 600px; overflow: hidden; background: #101426; }
 .bedroom-scene { position: absolute; inset: 0; overflow: hidden; background: #171b30; }
 .bedroom-art { position: absolute; inset: 0; width: 100%; height: 100%; }
-.crt-screen { position: absolute; left: 54%; top: 22%; width: 31.5%; height: 35.5%; padding: 10px 14px; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #efcf98; font-family: var(--font-mono); text-align: center; background: #202b2c; box-shadow: inset 0 0 30px #070d12; }
-.crt-screen h1, .story-crt-title { margin: 0; font-family: var(--font-serif); font-size: clamp(2.8rem, 5.5vw, 5rem); line-height: 1; letter-spacing: 0.06em; }
-.crt-online { margin: 0 0 8px; font-size: clamp(0.65rem, 1vw, 0.85rem); color: #aabdac; }
-.crt-subtitle { margin: 6px 0 16px; font-size: 0.9rem; }
-.crt-menu { display: flex; flex-direction: column; align-items: stretch; gap: 4px; width: 100%; }
-.crt-menu button { position: relative; padding: 8px; border: 1px solid transparent; background: transparent; color: #efcf98; font-size: clamp(0.75rem, 1.15vw, 1rem); cursor: pointer; transition: background-color 140ms ease-out, border-color 140ms ease-out, text-shadow 140ms ease-out; }
+.crt-screen { position: absolute; left: 54%; top: 22%; width: 31.5%; height: 35.5%; padding: 12px 16px; container-type: size; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 4px; overflow: hidden; color: #efcf98; font-family: var(--font-mono); text-align: center; background: #202b2c; box-shadow: inset 0 0 30px #070d12; }
+/* Screen-height units keep the full menu inside the illustrated glass. */
+.crt-screen h1, .story-crt-title { margin: 0; font-family: var(--font-serif); font-size: clamp(1.8rem, 20cqh, 4rem); line-height: 1; letter-spacing: 0.06em; }
+.crt-online { margin: 0; font-size: clamp(0.65rem, 5cqh, 0.85rem); color: #aabdac; }
+.crt-subtitle { margin: 0; font-size: 0.8rem; }
+.crt-menu { display: flex; flex-direction: column; align-items: stretch; gap: 2px; width: 100%; }
+.crt-menu button { position: relative; min-height: 26px; padding: 3px 8px; border: 1px solid transparent; background: transparent; color: #efcf98; font-size: clamp(0.75rem, 5.5cqh, 1rem); line-height: 1.2; cursor: pointer; transition: background-color 140ms ease-out, border-color 140ms ease-out, text-shadow 140ms ease-out; }
 .crt-menu button::before { content: ''; position: absolute; left: 10px; top: calc(50% - 4px); border: 4px solid transparent; border-left-color: currentColor; opacity: 0; }
 .crt-menu button:hover, .crt-menu button:focus-visible { border-color: #efcf98; background: #efcf9810; outline-color: #efcf98; text-shadow: 0 0 8px #efcf9860; }
 .crt-menu button:hover::before, .crt-menu button:focus-visible::before { opacity: 1; }
 .last-session-title .crt-screen::after { content: ''; position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 24px #efcf980a, 0 0 28px #efcf980c; animation: crt-breathe 6s ease-in-out infinite; }
 @keyframes crt-breathe { 50% { opacity: 0.35; } }
-.crt-shutdown { margin: 12px 0 0; color: #e3a079; font-size: clamp(0.6rem, 0.9vw, 0.78rem); }
+.crt-shutdown { margin: 0; color: #e3a079; font-size: clamp(0.6rem, 4.5cqh, 0.78rem); }
 .title-caption { position: absolute; bottom: 26px; left: 5%; margin: 0; color: #c0b7b0; font-family: var(--font-serif); font-size: 1.1rem; }
 .title-field-notes { position: absolute; bottom: 28px; left: 4%; width: 390px; max-width: calc(100% - 32px); max-height: 65%; overflow: auto; padding: 22px; background: #252b38; border-left: 3px solid #aabdac; color: #ece5d6; box-shadow: 8px 8px #0c122580; }
 .title-field-notes h2 { margin: 0; font: 1.4rem var(--font-serif); }
@@ -520,11 +521,6 @@ kbd { font-family: var(--font-mono); font-size: 0.8em; }
   .last-session-title { min-height: 620px; }
   .bedroom-art { width: 960px; height: 600px; left: calc(50% - 650px); top: 35px; }
   .crt-screen { left: calc(50% - 134px); top: 168px; width: 300px; height: 212px; padding: 8px; }
-  .crt-screen h1, .story-crt-title { font-size: 3rem; }
-  .crt-online { font-size: 0.7rem; }
-  .crt-menu button { font-size: 0.85rem; padding: 7px; }
-  .crt-subtitle { font-size: 0.8rem; margin-bottom: 8px; }
-  .crt-shutdown { font-size: 0.62rem; margin-top: 8px; }
   .title-caption { left: 20px; bottom: 24px; font-size: 0.95rem; }
   .title-field-notes { left: 16px; bottom: 24px; padding: 16px; }
   .story-dialogue { left: 16px; right: 16px; bottom: 108px; padding: 12px; }

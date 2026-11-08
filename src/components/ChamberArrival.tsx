@@ -7,13 +7,22 @@ type ChamberArrivalProps = {
   room: RoomId;
   bindLabel: string;
   complete: boolean;
+  voiceRestored: boolean;
   onReturnToWorld: () => void;
 };
 
-export function ChamberArrival({ room, bindLabel, complete, onReturnToWorld }: ChamberArrivalProps) {
-  const [message, setMessage] = useState<'entry' | 'hint' | 'success' | null>('entry');
+export function ChamberArrival({ room, bindLabel, complete, voiceRestored, onReturnToWorld }: ChamberArrivalProps) {
+  const [message, setMessage] = useState<'entry' | 'hint' | 'success' | 'voice' | null>('entry');
+  const voiceShown = useRef(false);
   const successShown = useRef(false);
   const noteRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (voiceRestored && !voiceShown.current) {
+      voiceShown.current = true;
+      setMessage('voice');
+    }
+  }, [voiceRestored]);
 
   useEffect(() => {
     if (complete && !successShown.current && room !== 'finale') {
@@ -43,7 +52,7 @@ export function ChamberArrival({ room, bindLabel, complete, onReturnToWorld }: C
         <aside ref={noteRef} id="chamber-note" className="chamber-arrival" aria-label="Chamber dialogue"
           data-testid="chamber-arrival" data-message={message}>
           <div>
-            <StoryDialogue lines={[{ speaker: 'Boy', text: ROOM_STORY[room][message] }]} />
+            <StoryDialogue lines={[{ speaker: 'Boy', text: message === 'voice' ? 'There. My voice… this place muted me too.' : ROOM_STORY[room][message] }]} />
             {room === 'display' && message === 'entry' && (
               <p className="arrival-controls">Move: WASD / Arrows · Interact: {bindLabel} · Patch Deck below · Settings: Esc</p>
             )}

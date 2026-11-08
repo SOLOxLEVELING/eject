@@ -312,10 +312,11 @@ try {
   await send('Page.enable');
   await send('Page.addScriptToEvaluateOnNewDocument', { source: `
     window.__audioContexts = 0;
+    window.__createdAudioContexts = [];
     if (window.AudioContext) {
       const NativeAudioContext = window.AudioContext;
       window.AudioContext = class extends NativeAudioContext {
-        constructor(...args) { super(...args); window.__audioContexts++; }
+        constructor(...args) { super(...args); window.__audioContexts++; window.__createdAudioContexts.push(this); }
       };
     }
   ` });
@@ -325,6 +326,16 @@ try {
   assert(await evaluate(`document.querySelector('#title-help').hidden`));
   assert.equal(await evaluate(`document.querySelectorAll('.boot-SideRack, .rack-register').length`), 0);
   assert(await evaluate(`document.querySelector('.crt-screen').contains(document.querySelector('[data-testid="start-btn"]'))`));
+  for (const [width, height] of [[1470, 800], [1280, 720], [1024, 600], [390, 844], [320, 720]]) {
+    await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: width < 641 });
+    assert(await evaluate(`(() => {
+      const glass = document.querySelector('.crt-screen').getBoundingClientRect();
+      const items = [...document.querySelectorAll('.crt-online, .crt-screen h1, .crt-subtitle, .crt-menu button, .crt-shutdown')].map(el => el.getBoundingClientRect());
+      return items.every((r, i) => r.left >= glass.left + 4 && r.right <= glass.right - 4 && r.top >= glass.top + 4 && r.bottom <= glass.bottom - 4 && (!i || r.top >= items[i - 1].bottom - 1));
+    })()`), `CRT title/menu must fit inside the glass without overlap at ${width}×${height}`);
+    await screenshot(`crt-menu-contained-${width}`);
+  }
+  await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 720, deviceScaleFactor: 1, mobile: false });
   assert(await evaluate(`document.querySelector('.crt-screen').textContent.includes('PLAYERS ONLINE: 1')`));
   assert.equal(await evaluate(`document.activeElement.dataset.testid`), 'start-btn');
   await key('Tab');
@@ -992,7 +1003,39 @@ try {
   await screenshot('04-mobile-overlay');
   await key('Escape'); assert(!(await modal()));
   await screenshot('05-mobile-room');
+  // Optional bedroom sound never modifies gameplay mute/volume, and closes on pull/skip.
+  await key('Escape'); await click('[data-testid="hud-restart-btn"]');
+  assert.equal(await evaluate(`document.querySelector('[data-testid="bedroom-sound-btn"]').getAttribute('aria-pressed')`), 'false');
+  await click('[data-testid="bedroom-sound-btn"]');
+  await waitFor(`window.__createdAudioContexts.at(-1).state === 'running'`);
+  await screenshot('bedroom-sound-enabled');
+  await click('[data-testid="bedroom-sound-btn"]');
+  await waitFor(`window.__createdAudioContexts.at(-1).state === 'closed'`);
+  await click('[data-testid="bedroom-sound-btn"]');
+  await click('[data-testid="start-btn"]');
+  assert.equal(await evaluate(`window.__createdAudioContexts.at(-1).state`), 'running');
+  await key('Enter'); await key('Enter'); await key('Enter');
+  await waitFor(`document.querySelector('[data-shot]')?.dataset.shot === 'the-pull'`);
+  await waitFor(`window.__createdAudioContexts.at(-1).state === 'closed'`);
+  await key('Escape');
+  assert.equal(await evaluate(`document.querySelector('#patch-mute').getAttribute('aria-pressed')`), 'true');
+  assert(await evaluate(`document.querySelector('#chamber-note').textContent.includes('The game’s gone quiet.')`));
+  await range('#patch-volume', 65);
+  assert.notEqual(await evaluate(`document.querySelector('#chamber-note')?.dataset.message`), 'voice');
+  await click('#patch-mute');
+  assert.equal(await evaluate(`document.querySelector('#chamber-note').dataset.message`), 'voice');
+  assert(await evaluate(`document.querySelector('#chamber-note').textContent.includes('My voice… this place muted me too.')`));
+  await click('[aria-label="Dismiss chamber note"]');
+  await key('d'); assert.equal(await position(), '3,3');
+  await click('#patch-mute'); await click('#patch-mute');
+  assert(!(await evaluate(`!!document.querySelector('#chamber-note')`)), 'Voice line must not repeat on mute cycling');
+  await click('[data-testid="patch-return-btn"]'); await key('Escape'); await click('[data-testid="hud-restart-btn"]');
+  await click('[data-testid="bedroom-sound-btn"]'); await click('[data-testid="start-btn"]'); await key('Escape');
+  await waitFor(`window.__createdAudioContexts.at(-1).state === 'closed'`);
+  await click('#patch-mute');
+  assert.equal(await evaluate(`document.querySelector('#chamber-note').dataset.message`), 'voice', 'Replay resets the voice line');
   assert.deepEqual(errors, []);
+  console.log('PASS: opt-in CRT arcade loop toggles, continues into the bedroom intro and stops on pull/skip; gameplay remains muted, voice line waits for audible settings, is non-blocking, appears once and resets on replay.');
   console.log(`PASS: world fills ${(dimensions.worldArea * 100).toFixed(1)}% of 1280×720; no page overflow.`);
   console.log('PASS: button/Escape menu, native Tab containment, slider/select keyboard controls, focus return, no keyboard/pointer leakage.');
   console.log(`PASS: CRT title hover/focus/help; nine single spoken lines in five story beats completed in ${openingDuration}ms; first/middle/final-line skip, Escape isolation, line-before-scene click/Enter, fresh state/focus, held-key isolation and reduced-motion still frames.`);

@@ -9,6 +9,7 @@ import { PatchDeck } from '../components/PatchDeck';
 import { WorldGrid } from '../components/WorldGrid';
 import { createInitialState, gameReducer } from '../game/gameReducer';
 import { getRoomBlueprint } from '../game/levels';
+import { startBedroomAudio } from '../game/bedroomAudio';
 import {
   canActivateGlyph,
   canActivateResonator,
@@ -21,7 +22,7 @@ import {
   getTileAt,
   isRoomExitUnlocked,
 } from '../game/rules';
-import type { BindKey, Direction, Settings } from '../game/types';
+import type { BindKey, Direction, RoomId, Settings } from '../game/types';
 
 function isInteractiveControl(element: EventTarget | null): boolean {
   return element instanceof Element && Boolean(
@@ -50,10 +51,27 @@ export function App() {
   const sceneRef = useRef<HTMLElement | null>(null);
   const startPlaying = useCallback(() => dispatch({ type: 'START_GAME' }), []);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const bedroomStopRef = useRef<(() => void) | null>(null);
+  const [bedroomSound, setBedroomSound] = useState(false);
+  const [voiceRoom, setVoiceRoom] = useState<RoomId | null>(null);
+  const silenceBedroom = useCallback(() => {
+    bedroomStopRef.current?.();
+    bedroomStopRef.current = null;
+    setBedroomSound(false);
+  }, []);
+  useEffect(() => () => bedroomStopRef.current?.(), []);
+  useEffect(() => {
+    if (state.phase !== 'intro' && state.phase !== 'cinematic') silenceBedroom();
+    if (state.phase === 'playing' && !state.settings.muted && state.settings.volume > 0 && !voiceRoom) {
+      setVoiceRoom(state.room);
+    }
+  }, [state.phase, state.room, state.settings.muted, state.settings.volume, voiceRoom, silenceBedroom]);
   const stateRef = useRef(state);
   stateRef.current = state;
 
   function returnToTitle() {
+    silenceBedroom();
+    setVoiceRoom(null);
     setSettingsOpen(false);
     dispatch({ type: 'RESTART_GAME' });
   }
@@ -239,11 +257,18 @@ export function App() {
   }, [state.phase, settingsOpen]);
 
   if (state.phase === 'cinematic') {
-    return <OpeningSequence state={state} onComplete={startPlaying} />;
+    return <OpeningSequence state={state} onComplete={startPlaying} onSilenceBedroom={silenceBedroom} />;
   }
 
   if (state.phase === 'intro') {
-    return <TitleScreen onStart={() => dispatch({ type: 'START_INTRO' })} />;
+    return <TitleScreen onStart={() => dispatch({ type: 'START_INTRO' })}
+      soundEnabled={bedroomSound} onToggleSound={() => {
+        if (bedroomStopRef.current) silenceBedroom();
+        else {
+          bedroomStopRef.current = startBedroomAudio();
+          setBedroomSound(Boolean(bedroomStopRef.current));
+        }
+      }} />;
   }
 
   if (state.phase === 'won') {
@@ -260,7 +285,7 @@ export function App() {
       dispatch({ type: 'SET_VOLUME', value });
     },
     onToggleMute: () => {
-      playConsoleTone('probe', { ...state.settings, muted: !state.settings.muted });
+      playConsoleTone('probe', gameReducer(state, { type: 'TOGGLE_MUTE' }).settings);
       dispatch({ type: 'TOGGLE_MUTE' });
     },
     onInteractKeyChange: (value: BindKey) => dispatch({ type: 'SET_INTERACT_KEY', value }),
@@ -295,6 +320,7 @@ export function App() {
           onInteract={triggerInteract}
         />
         <ChamberArrival key={state.room} room={state.room} bindLabel={bindLabel}
+          voiceRestored={voiceRoom === state.room && !settingsOpen}
           complete={isRoomExitUnlocked(state.room, state.progress, state.settings)}
           onReturnToWorld={() => sceneRef.current?.focus({ preventScroll: true })} />
       </main>
